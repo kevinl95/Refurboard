@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "refurboard"
+version = "0.1.0"
+description = "Turn any old smart phone into an interactive whiteboard"
+authors = ["kloeffler95 <kevin.loeffler@colorado.edu>"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+kivy = "^2.3.0"
+qrcode = {extras = ["pil"], version = "^8.0"}
+pillow = "^11.0.0"
+flask = "^3.1.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
