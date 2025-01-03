@@ -1,6 +1,7 @@
 import os
 import socket
 import qrcode
+import base64
 from io import BytesIO
 from flask import Flask, jsonify, request
 from threading import Thread
@@ -77,22 +78,23 @@ def get_ip():
     ip_address = socket.gethostbyname(socket.gethostname())
     return jsonify(ip_address)
 
-@app.route('/video_feed')
-def video_feed():
-    def generate():
-        cap = cv2.VideoCapture(0)
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = process_frame(frame)
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            yield (b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        cap.release()
-        return app.response_class(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
+@app.route('/stream', methods=['POST'])
+def stream():
+    try:
+        # Get the JSON data from the request
+        data = request.get_json()
+        
+        if 'image' not in data:
+            return jsonify({'error': 'No image data provided'}), 400
+        
+        # Decode the base64 image data
+        image_data = base64.b64decode(data['image'])
+        
+        return jsonify({'message': 'Image received successfully'}), 200
+    
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'error': 'An error occurred'}), 500
 
 if __name__ == '__main__':
     RefurboardApp().run()
