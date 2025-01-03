@@ -7,7 +7,7 @@ from io import BytesIO
 from flask import Flask, jsonify, request
 from threading import Thread
 from kivy.app import App
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Line
 from kivy.uix.image import Image
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -88,9 +88,12 @@ class RefurboardApp(App):
         # Add the calibration instruction label
         self.calibration_label = Label(text='Use your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
         self.layout.add_widget(self.calibration_label)
+        
         with self.layout.canvas:
             Color(1, 0, 0, 1)  # Set the color to red
-            self.target = Rectangle(size=(50, 50), pos=(50, Window.height - 100))  # Draw a red target in the top left corner
+            # Draw a red X target in the top left corner
+            self.line1 = Line(points=[50, Window.height - 50, 100, Window.height - 100], width=2)
+            self.line2 = Line(points=[50, Window.height - 100, 100, Window.height - 50], width=2)
 
         # Make the window full screen
         Window.fullscreen = 'auto'
