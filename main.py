@@ -1,7 +1,8 @@
+import os
 import socket
 import qrcode
 from io import BytesIO
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from threading import Thread
 from kivy.app import App
 from kivy.graphics import Color, Rectangle
@@ -12,8 +13,11 @@ from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.core.window import Window
+import cv2
 
 app = Flask(__name__)
+UPLOAD_FOLDER = '/path/to/upload/folder'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 class RefurboardApp(App):
     def build(self):
@@ -73,5 +77,31 @@ def get_ip():
     ip_address = socket.gethostbyname(socket.gethostname())
     return jsonify(ip_address)
 
+@app.route('/video_feed')
+def video_feed():
+    def generate():
+        cap = cv2.VideoCapture(0)
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame = process_frame(frame)
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        cap.release()
+        return app.response_class(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
 if __name__ == '__main__':
     RefurboardApp().run()
+    def process_frame(frame):
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours:
+            if cv2.contourArea(contour) > 100:
+                (x, y, w, h) = cv2.boundingRect(contour)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        return frame
