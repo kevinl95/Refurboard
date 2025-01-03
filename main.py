@@ -11,14 +11,13 @@ from kivy.graphics import Color, Rectangle
 from kivy.uix.image import Image
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
+from kivy.uix.button import Button
 from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.core.window import Window
 
 app = Flask(__name__)
-UPLOAD_FOLDER = '/path/to/upload/folder'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 class RefurboardApp(App):
     def build(self):
@@ -34,6 +33,12 @@ class RefurboardApp(App):
         self.layout.add_widget(self.label)
         self.qr_image = Image()
         self.layout.add_widget(self.qr_image)
+        
+        # Add the Calibrate button
+        self.calibrate_button = Button(text='Calibrate', size_hint=(None, None), size=(200, 50), pos_hint={'center_x': 0.5})
+        self.calibrate_button.bind(on_press=self.show_calibration_screen)
+        self.layout.add_widget(self.calibrate_button)
+        
         Clock.schedule_once(self.start_server, 1)
         with self.layout.canvas.before:
             Color(1, 1, 1, 1)  # Set the background color to white
@@ -72,6 +77,24 @@ class RefurboardApp(App):
         img.save(buffer, format='PNG')
         buffer.seek(0)
         self.qr_image.texture = CoreImage(buffer, ext='png').texture
+
+    def show_calibration_screen(self, instance):
+        self.layout.clear_widgets()  # Clear the existing widgets
+        with self.layout.canvas.before:
+            Color(1, 1, 1, 1)  # Set the color to white
+            self.rect = Rectangle(size=Window.size, pos=self.layout.pos)
+            self.layout.bind(size=self._update_rect, pos=self._update_rect)
+        
+        # Add the calibration instruction label
+        self.calibration_label = Label(text='Use your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
+        self.layout.add_widget(self.calibration_label)
+        with self.layout.canvas:
+            Color(1, 0, 0, 1)  # Set the color to red
+            self.target = Rectangle(size=(50, 50), pos=(50, Window.height - 100))  # Draw a red target in the top left corner
+
+        # Make the window full screen
+        Window.fullscreen = 'auto'
+        self._update_rect(self.layout, None)
 
 @app.route('/ip')
 def get_ip():
