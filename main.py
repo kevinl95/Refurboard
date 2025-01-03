@@ -1,7 +1,8 @@
-import os
 import socket
 import qrcode
 import base64
+import cv2
+import numpy as np
 from io import BytesIO
 from flask import Flask, jsonify, request
 from threading import Thread
@@ -14,7 +15,6 @@ from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.core.window import Window
-import cv2
 
 app = Flask(__name__)
 UPLOAD_FOLDER = '/path/to/upload/folder'
@@ -83,15 +83,46 @@ def stream():
     try:
         # Get the JSON data from the request
         data = request.get_json()
-        
+
         if 'image' not in data:
             return jsonify({'error': 'No image data provided'}), 400
-        
+
         # Decode the base64 image data
         image_data = base64.b64decode(data['image'])
-        
-        return jsonify({'message': 'Image received successfully'}), 200
-    
+
+        # Convert the image data to a NumPy array
+        nparr = np.frombuffer(image_data, np.uint8)
+
+        # Decode the NumPy array into an OpenCV image
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Convert the image to HSV color space for color detection
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # Define the color range for the LED (example for red color)
+        lower_bound = np.array([0, 100, 100])  # Adjust based on the LED color
+        upper_bound = np.array([10, 255, 255])  # Adjust based on the LED color
+
+        # Create a mask to identify the color in the specified range
+        mask = cv2.inRange(hsv, lower_bound, upper_bound)
+
+        # Find contours of the detected areas
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            # Find the largest contour (assumes LED is the largest bright spot of this color)
+            largest_contour = max(contours, key=cv2.contourArea)
+            (x, y), radius = cv2.minEnclosingCircle(largest_contour)
+
+            if radius > 5:  # Minimum size to filter noise
+                return jsonify({
+                    'detected': True,
+                    'position': {'x': int(x), 'y': int(y)},
+                    'radius': int(radius)
+                }), 200
+
+        return jsonify({'detected': False}), 200
+
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({'error': 'An error occurred'}), 500
