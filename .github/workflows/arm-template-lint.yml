@@ -10,21 +10,25 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # Changed to windows-latest since arm-ttk is PowerShell based
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3  # Updated to v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-
-      - name: Install arm-ttk
+      - name: Install ARM TTK
+        shell: pwsh
         run: |
-          pip install git+https://github.com/Azure/arm-ttk.git
+          $installPath = "$env:USERPROFILE\arm-ttk"
+          New-Item -ItemType Directory -Path $installPath -Force
+          Invoke-WebRequest -Uri "https://github.com/Azure/arm-ttk/archive/refs/heads/master.zip" -OutFile "$installPath\arm-ttk.zip"
+          Expand-Archive -Path "$installPath\arm-ttk.zip" -DestinationPath $installPath -Force
+          $ttkPath = (Get-ChildItem -Path $installPath -Filter "arm-ttk-master" -Directory).FullName
+          Copy-Item -Path "$ttkPath\*" -Destination $installPath -Recurse -Force
+          echo "$installPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Lint ARM templates
+      - name: Run ARM TTK Tests
+        shell: pwsh
         run: |
-          arm-ttk/arm-ttk/arm-ttk.ps1 -TemplatePath ./azuredeploy.json
+          Import-Module "$env:USERPROFILE\arm-ttk\arm-ttk.psd1"
+          Test-AzTemplate -TemplatePath "$env:GITHUB_WORKSPACE\azuredeploy.json"
