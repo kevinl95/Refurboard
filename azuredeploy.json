@@ -33,7 +33,7 @@
       "name": "DeployStaticWebsiteFiles",
       "location": "[resourceGroup().location]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]"
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'),'default','$web')]"
       ],
       "kind": "AzureCLI",
       "properties": {
