@@ -5,7 +5,7 @@
     {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2016-12-01",
-      "name": "[parameters('storageAccountName')]",
+      "name": "[variables('storageAccountName')]",
       "location": "[resourceGroup().location]",
       "sku": {
         "name": "Standard_LRS"
@@ -19,9 +19,9 @@
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2018-02-01",
-      "name": "[concat(parameters('storageAccountName'), '/default/$web')]",
+      "name": "[concat(variables('storageAccountName'), '/default/$web')]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ],
       "properties": {
         "publicAccess": "Blob"
@@ -33,34 +33,26 @@
       "name": "DeployStaticWebsiteFiles",
       "location": "[resourceGroup().location]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', concat(parameters('storageAccountName'), '/$web'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', concat(variables('storageAccountName'), '/$web'))]"
       ],
       "kind": "AzureCLI",
       "properties": {
         "azCliVersion": "2.40.0",
         "timeout": "PT15M",
         "retentionInterval": "P1D",
-        "scriptContent": "[concat('az storage blob upload-batch -d $web --account-name ', parameters('storageAccountName'), ' --source https://github.com/', 'kevinl95, '/', 'refurboard, '/archive/refs/heads/', 'main, '.zip --pattern */client/* --destination-path /')]",
+        "scriptContent": "[concat('az storage blob upload-batch -d $web --account-name ', variables('storageAccountName'), ' --source https://github.com/', 'kevinl95, '/', 'refurboard, '/archive/refs/heads/', 'main, '.zip --pattern */client/* --destination-path /')]",
         "supportingScriptUris": [],
         "forceUpdateTag": "1.0"
       }
     }
   ],
-  "parameters": {
-    "storageAccountName": {
-      "type": "string",
-      "metadata": {
-        "description": "The name of the storage account to create. Must be globally unique and between 3 and 24 characters long."
-      },
-      "minLength": 3,
-      "maxLength": 24,
-      "allowedPattern": "^[a-z0-9]+$"
-    }
+  "variables": {
+    "storageAccountName": "[concat('storage', uniqueString(resourceGroup().id))]"
   },
   "outputs": {
     "staticWebsiteUrl": {
       "type": "string",
-      "value": "[concat('https://', parameters('storageAccountName'), '.z13.web.core.windows.net')]"
+      "value": "[concat('https://', variables('storageAccountName'), '.z13.web.core.windows.net')]"
     }
   }
 }
