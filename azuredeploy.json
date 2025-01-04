@@ -13,7 +13,8 @@
       "kind": "Storage",
       "properties": {
         "supportsHttpsTrafficOnly": true,
-        "isHnsEnabled": false
+        "isHnsEnabled": false,
+        "allowBlobPublicAccess": true
       }
     },
     {
@@ -22,10 +23,7 @@
       "name": "[concat(variables('storageAccountName'), '/default/$web')]",
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ],
-      "properties": {
-        "publicAccess": "Blob"
-      }
+      ]
     },
     {
       "type": "Microsoft.Resources/deploymentScripts",
