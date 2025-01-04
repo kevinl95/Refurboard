@@ -3,6 +3,7 @@ import qrcode
 import base64
 import cv2
 import numpy as np
+import urllib.parse
 from io import BytesIO
 from flask import Flask, jsonify, request
 from threading import Thread
@@ -15,7 +16,6 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
-from kivy.config import Config
 from kivy.core.window import Window
 
 app = Flask(__name__)
@@ -26,6 +26,10 @@ class RefurboardApp(App):
         self.layout = BoxLayout(orientation='vertical')
         self.layout.canvas.before.clear()
         
+        # Server variables
+        self.ip_address = None
+        self.server_running = False
+        self.base_url = "http://default-url.com"  # Default base URL
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)
@@ -41,18 +45,26 @@ class RefurboardApp(App):
         self.layout.add_widget(self.calibrate_button)
         
         # Add the Settings button
-        self.settings_button = Button(text='Settings', size_hint=(None, None), size=(50, 50), pos_hint={'center_x': 0.5})
+        self.settings_button = Button(text='Settings', size_hint=(None, None), size=(200, 50), pos_hint={'center_x': 0.5})
         self.settings_button.bind(on_press=self.show_settings_menu)
         self.layout.add_widget(self.settings_button)
         
-        Clock.schedule_once(self.start_server, 1)
+        if not self.server_running:
+            Clock.schedule_once(self.start_server, 1)
         with self.layout.canvas.before:
             Color(1, 1, 1, 1)  # Set the background color to white
             self.rect = Rectangle(size=Window.size, pos=self.layout.pos)
             self.layout.bind(size=self._update_rect, pos=self._update_rect)
-        
-        self.base_url = "http://default-url.com"  # Default base URL
         return self.layout
+    
+    def rebuild_main_screen(self):
+        self.generate_qr_code(urllib.parse.urljoin(self.base_url, 'index.html?server=' + self.ip_address))
+        self.layout.clear_widgets()  # Clear the existing widgets
+        self.layout.add_widget(self.logo)
+        self.layout.add_widget(self.label)
+        self.layout.add_widget(self.qr_image)
+        self.layout.add_widget(self.calibrate_button)
+        self.layout.add_widget(self.settings_button)
 
     def _update_rect(self, instance, _):
         self.rect.size = instance.size
@@ -69,12 +81,14 @@ class RefurboardApp(App):
             s.close()
         return IP
 
-    def start_server(self, _):
-        ip_address = self.get_ip_address()
-        self.label.text = f"HTTP server running at {self.base_url}"
-        self.generate_qr_code(self.base_url)
-        thread = Thread(target=app.run, kwargs={'host': ip_address, 'port': 5000})
-        thread.start()
+    def start_server(self, _=None):
+        if not self.server_running:
+            self.ip_address = self.get_ip_address()
+            self.label.text = f"HTTP server running at {self.ip_address}"
+            thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': 5000})
+            thread.start()
+            self.server_running = True
+        self.generate_qr_code(urllib.parse.urljoin(self.base_url, 'index.html?server=' + self.ip_address))
 
     def generate_qr_code(self, data):
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -134,8 +148,7 @@ class RefurboardApp(App):
 
     def save_settings(self, instance):
         self.base_url = self.url_input.text
-        self.start_server(None)  # Restart the server with the new base URL
-        self.build()  # Rebuild the main layout
+        self.rebuild_main_screen()
 
 @app.route('/ip')
 def get_ip():
