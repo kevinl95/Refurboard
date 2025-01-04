@@ -1,0 +1,30 @@
+name: Lint ARM Templates
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install arm-ttk
+        run: |
+          pip install git+https://github.com/Azure/arm-ttk.git
+
+      - name: Lint ARM templates
+        run: |
+          arm-ttk/arm-ttk/arm-ttk.ps1 -TemplatePath ./azuredeploy.json
