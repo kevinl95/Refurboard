@@ -51,7 +51,10 @@
       "type": "string",
       "metadata": {
         "description": "The name of the storage account to create. Must be globally unique and between 3 and 24 characters long."
-      }
+      },
+      "minLength": 3,
+      "maxLength": 24,
+      "allowedPattern": "^[a-z0-9]+$"
     }
   },
   "outputs": {
