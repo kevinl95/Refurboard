@@ -5,7 +5,7 @@
     {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2016-12-01",
-      "name": "[variables('storageAccountName')]",
+      "name": "[substring(variables('storageAccountName'), 0, 24)]",
       "location": "[resourceGroup().location]",
       "sku": {
         "name": "Standard_LRS"
@@ -33,7 +33,7 @@
       "name": "DeployStaticWebsiteFiles",
       "location": "[resourceGroup().location]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', concat(variables('storageAccountName'), '/$web'))]"
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default/$web')]"
       ],
       "kind": "AzureCLI",
       "properties": {
