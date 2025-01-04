@@ -4,13 +4,13 @@
   "resources": [
     {
       "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2016-12-01",
       "name": "[parameters('storageAccountName')]",
       "location": "[resourceGroup().location]",
       "sku": {
         "name": "Standard_LRS"
       },
-      "kind": "StorageV2",
+      "kind": "Storage",
       "properties": {
         "supportsHttpsTrafficOnly": true,
         "isHnsEnabled": false
@@ -18,7 +18,7 @@
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-      "apiVersion": "2022-09-01",
+      "apiVersion": "2018-02-01",
       "name": "[concat(parameters('storageAccountName'), '/default/$web')]",
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
