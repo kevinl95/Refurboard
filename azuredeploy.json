@@ -40,7 +40,7 @@
         "azCliVersion": "2.40.0",
         "timeout": "PT15M",
         "retentionInterval": "P1D",
-        "scriptContent": "[concat('az storage blob upload-batch -d $web --account-name ', variables('storageAccountName'), ' --source https://github.com/', 'kevinl95, '/', 'refurboard, '/archive/refs/heads/', 'main, '.zip --pattern */client/* --destination-path /')]",
+        "scriptContent": "[concat('az storage blob upload-batch -d $web --account-name ', variables('storageAccountName'), ' --source https://github.com/', 'kevinl95', '/', 'refurboard', '/archive/refs/heads/', 'main, '.zip --pattern */client/* --destination-path /')]",
         "supportingScriptUris": [],
         "forceUpdateTag": "1.0"
       }
