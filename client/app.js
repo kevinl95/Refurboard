@@ -18,7 +18,7 @@ if (navigator.mediaDevices.getUserMedia) {
                     },
                     body: JSON.stringify({ image: imageData })
                 });
-            }, 1000);
+            }, 33); // 30fps for better touch screen performance
         })
         .catch(function (error) {
             console.log("Something went wrong!");

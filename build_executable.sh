@@ -1,4 +1,4 @@
 #!/bin/bash
 
-# Run PyInstaller with the spec file
-poetry run pyinstaller refurboard.spec
+# Run cx_Freeze to build the executable
+poetry run python setup.py build
