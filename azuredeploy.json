@@ -47,7 +47,7 @@
     }
   ],
   "variables": {
-    "storageAccountName": "[concat('storage', uniqueString(resourceGroup().id))]"
+    "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]"
   },
   "outputs": {
     "staticWebsiteUrl": {
