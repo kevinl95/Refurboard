@@ -38,7 +38,7 @@
         "azCliVersion": "2.40.0",
         "timeout": "PT15M",
         "retentionInterval": "P1D",
-        "scriptContent": "az storage blob upload-batch -d $web --account-name ${storageAccountName} --source https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip --pattern */client/* --destination-path /",
+        "scriptContent": "az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip --pattern '*/client/*' --destination-path '/'",
         "supportingScriptUris": [],
         "forceUpdateTag": "1.0",
         "environmentVariables": [
