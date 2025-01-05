@@ -11,7 +11,7 @@ function startVideo(constraints) {
             setInterval(() => {
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = canvas.toDataURL('image/png').split(',')[1];
-                fetch(`https://${serverIp}/stream`, {
+                fetch(`${serverIp}/stream`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

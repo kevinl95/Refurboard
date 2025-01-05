@@ -190,7 +190,7 @@ def get_ip():
 @app.route('/stream', methods=['POST'])
 def stream():
     data = request.json
-    print(data)
+    print("Received data:", data)
     image_data = base64.b64decode(data['image'])
     nparr = np.frombuffer(image_data, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
