@@ -54,7 +54,7 @@
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2020-04-01-preview",
-      "name": "[variables('roleAssignmentName')]",
+      "name": "[guid(subscription().id, resourceGroup().id, variables('identityName'))]",
       "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
       "dependsOn": [
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
@@ -73,7 +73,7 @@
       "location": "[resourceGroup().location]",
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]",
-        "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentName'))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(subscription().id, resourceGroup().id, variables('identityName')))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
       ],
       "identity": {
@@ -102,8 +102,7 @@
   "variables": {
     "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
     "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
-    "storageBlobDataOwnerRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]",
-    "roleAssignmentName": "[guid(resourceGroup().id, variables('identityName'))]"
+    "storageBlobDataOwnerRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]"
   },
   "outputs": {
     "staticWebsiteUrl": {
