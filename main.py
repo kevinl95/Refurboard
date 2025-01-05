@@ -29,7 +29,7 @@ class RefurboardApp(App):
         # Server variables
         self.ip_address = None
         self.server_running = False
-        self.base_url = "http://default-url.com"  # Default base URL
+        self.base_url = "https://purple-rock-06db10710.4.azurestaticapps.net/"  # Default base URL
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)

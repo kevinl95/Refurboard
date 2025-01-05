@@ -1,15 +1,13 @@
 ![A smart phone with two blue and orange people leaping out of the screen. Below is the text Refurboard.](assets/logo.png)
 # Refurboard
 
-[![Azure Static Web Apps CI/CD](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)
+[![Homepage CI/CD](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml) [![Client CI/CD](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-purple-rock-06db10710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-purple-rock-06db10710.yml)
 
 # Deploy Client
 
 The default client is publicly hosted by me on Azure here:
 
-However, you can deploy your own client with a single button press to Azure by clicking here:
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fkevinl95%2FRefurboard%2Frefs%2Fheads%2Fmain%2Fazuredeploy.json)
 
 ## Why Deploy your own client?
 
