@@ -33,12 +33,18 @@
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]"
       ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[variables('identityId')]": {}
+        }
+      },
       "kind": "AzureCLI",
       "properties": {
         "azCliVersion": "2.40.0",
         "timeout": "PT15M",
         "retentionInterval": "P1D",
-        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/'",
+        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
         "supportingScriptUris": [],
         "forceUpdateTag": "1.0",
         "environmentVariables": [
@@ -48,10 +54,33 @@
           }
         ]
       }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "[variables('identityName')]",
+      "location": "[resourceGroup().location]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(resourceGroup().id, variables('identityName'), variables('storageBlobDataContributorRole'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataContributorRole')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2018-11-30').principalId]",
+        "principalType": "ServicePrincipal"
+      }
     }
   ],
   "variables": {
-    "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]"
+    "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
+    "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
+    "identityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
+    "storageBlobDataContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
   },
   "outputs": {
     "staticWebsiteUrl": {
