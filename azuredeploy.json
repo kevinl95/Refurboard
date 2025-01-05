@@ -6,7 +6,7 @@
       "type": "Microsoft.Web/staticSites",
       "apiVersion": "2022-03-01",
       "name": "RefurboardClient",
-      "location": "WestUS2",
+      "location": "CentralUS",
       "sku": {
         "name": "Free",
         "tier": "Free"
