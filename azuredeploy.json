@@ -1,11 +1,19 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
+  "parameters": {
+    "staticSiteName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name for your Refurboard client deployment."
+      }
+    }
+  },
   "resources": [
     {
       "type": "Microsoft.Web/staticSites",
       "apiVersion": "2022-03-01",
-      "name": "RefurboardClient",
+      "name": "[parameters('staticSiteName')]",
       "location": "CentralUS",
       "sku": {
         "name": "Free",
@@ -15,8 +23,8 @@
         "repositoryUrl": "https://github.com/kevinl95/Refurboard",
         "branch": "main",
         "buildProperties": {
-          "appLocation": "/client",
-          "outputLocation": "/client"
+          "appLocation": "client",
+          "outputLocation": ""
         }
       }
     }
