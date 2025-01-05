@@ -1,11 +1,12 @@
 import socket
+import random
 import qrcode
 import base64
 import cv2
 import numpy as np
 import urllib.parse
 from io import BytesIO
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from threading import Thread
 from kivy.app import App
 from kivy.graphics import Color, Rectangle, Line
@@ -18,18 +19,17 @@ from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
 from kivy.core.window import Window
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='client')
 
 class RefurboardApp(App):
     def build(self):
         self.icon = 'assets/logo.png'  # Set the application icon
         self.layout = BoxLayout(orientation='vertical')
         self.layout.canvas.before.clear()
+
+        # Parameters
+        self.ip_address = ''
         
-        # Server variables
-        self.ip_address = None
-        self.server_running = False
-        self.base_url = "https://purple-rock-06db10710.4.azurestaticapps.net/"  # Default base URL
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)
@@ -49,14 +49,17 @@ class RefurboardApp(App):
         self.settings_button.bind(on_press=self.show_settings_menu)
         self.layout.add_widget(self.settings_button)
         
-        if not self.server_running:
-            Clock.schedule_once(self.start_server, 1)
+        Clock.schedule_once(self.start_server, 1)
         with self.layout.canvas.before:
             Color(1, 1, 1, 1)  # Set the background color to white
             self.rect = Rectangle(size=Window.size, pos=self.layout.pos)
             self.layout.bind(size=self._update_rect, pos=self._update_rect)
+        
         return self.layout
-    
+
+    def _update_rect(self, instance, _):
+        self.rect.size = instance.size
+
     def rebuild_main_screen(self):
         self.generate_qr_code(urllib.parse.urljoin(self.base_url, 'index.html?server=' + self.ip_address))
         self.layout.clear_widgets()  # Clear the existing widgets
@@ -65,9 +68,6 @@ class RefurboardApp(App):
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
         self.layout.add_widget(self.settings_button)
-
-    def _update_rect(self, instance, _):
-        self.rect.size = instance.size
 
     def get_ip_address(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -81,14 +81,14 @@ class RefurboardApp(App):
             s.close()
         return IP
 
-    def start_server(self, _=None):
-        if not self.server_running:
-            self.ip_address = self.get_ip_address()
-            self.label.text = f"HTTP server running at {self.ip_address}"
-            thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': 5000})
-            thread.start()
-            self.server_running = True
-        self.generate_qr_code(urllib.parse.urljoin(self.base_url, 'index.html?server=' + self.ip_address))
+    def start_server(self, _):
+        self.ip_address = self.get_ip_address()
+        port = random.randint(1024, 65535)  # Choose a random port between 1024 and 65535
+        self.base_url = f"http://{self.ip_address}:{port}"
+        self.label.text = f"HTTP server running at {self.base_url}"
+        self.generate_qr_code(f"{self.base_url}/index.html?server={self.base_url}")
+        thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': port})
+        thread.start()
 
     def generate_qr_code(self, data):
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
@@ -101,8 +101,8 @@ class RefurboardApp(App):
         self.qr_image.texture = CoreImage(buffer, ext='png').texture
 
     def _update_lines(self, instance, value):
-            self.line1.points = [50, Window.height - 50, 100, Window.height - 100]
-            self.line2.points = [50, Window.height - 100, 100, Window.height - 50]
+        self.line1.points = [50, Window.height - 50, 100, Window.height - 100]
+        self.line2.points = [50, Window.height - 100, 100, Window.height - 50]
 
     def show_calibration_screen(self, instance):
         self.layout.clear_widgets()  # Clear the existing widgets
@@ -152,66 +152,41 @@ class RefurboardApp(App):
 
 @app.route('/ip')
 def get_ip():
-    ip_address = socket.gethostbyname(socket.gethostname())
-    return jsonify(ip_address)
+    return jsonify('127.0.0.1')
 
 @app.route('/stream', methods=['POST'])
 def stream():
-    try:
-        # Get the JSON data from the request
-        data = request.get_json()
-        print(data)
-        if 'image' not in data:
-            return jsonify({'error': 'No image data provided'}), 400
+    data = request.json
+    image_data = base64.b64decode(data['image'])
+    nparr = np.frombuffer(image_data, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Decode the base64 image data
-        image_data = base64.b64decode(data['image'])
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Convert the image data to a NumPy array
-        nparr = np.frombuffer(image_data, np.uint8)
+    # Threshold the image to get the LED
+    _, thresh = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY)
 
-        # Decode the NumPy array into an OpenCV image
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Convert the image to HSV color space for color detection
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    if contours:
+        # Get the largest contour
+        c = max(contours, key=cv2.contourArea)
+        # Get the center of the contour
+        M = cv2.moments(c)
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            # Send the coordinates back to the client or use them as needed
+            return jsonify({'x': cX, 'y': cY})
 
-        # Define the color range for the LED (example for red color)
-        lower_bound = np.array([0, 100, 100])  # Adjust based on the LED color
-        upper_bound = np.array([10, 255, 255])  # Adjust based on the LED color
+    return jsonify({'error': 'LED not found'})
 
-        # Create a mask to identify the color in the specified range
-        mask = cv2.inRange(hsv, lower_bound, upper_bound)
-
-        # Find contours of the detected areas
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        if contours:
-            # Find the largest contour (assumes LED is the largest bright spot of this color)
-            largest_contour = max(contours, key=cv2.contourArea)
-            (x, y), radius = cv2.minEnclosingCircle(largest_contour)
-
-            if radius > 5:  # Minimum size to filter noise
-                return jsonify({
-                    'detected': True,
-                    'position': {'x': int(x), 'y': int(y)},
-                    'radius': int(radius)
-                }), 200
-
-        return jsonify({'detected': False}), 200
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({'error': 'An error occurred'}), 500
+@app.route('/')
+@app.route('/<path:path>')
+def serve_static(path='index.html'):
+    return send_from_directory(app.static_folder, path)
 
 if __name__ == '__main__':
     RefurboardApp().run()
-    def process_frame(frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in contours:
-            if cv2.contourArea(contour) > 100:
-                (x, y, w, h) = cv2.boundingRect(contour)
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        return frame
