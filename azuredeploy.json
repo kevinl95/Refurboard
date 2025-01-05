@@ -4,26 +4,47 @@
   "resources": [
     {
       "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2016-12-01",
+      "apiVersion": "2021-09-01",
       "name": "[variables('storageAccountName')]",
       "location": "[resourceGroup().location]",
       "sku": {
         "name": "Standard_LRS"
       },
-      "kind": "Storage",
+      "kind": "StorageV2",
       "properties": {
         "supportsHttpsTrafficOnly": true,
-        "isHnsEnabled": false,
-        "allowBlobPublicAccess": true
+        "allowBlobPublicAccess": true,
+        "minimumTlsVersion": "TLS1_2",
+        "publicAccess": "Container"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2021-09-01",
+      "name": "[concat(variables('storageAccountName'), '/default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ],
+      "properties": {
+        "cors": {
+          "corsRules": []
+        },
+        "deleteRetentionPolicy": {
+          "enabled": false
+        }
       }
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-      "apiVersion": "2018-02-01",
+      "apiVersion": "2021-09-01",
       "name": "[concat(variables('storageAccountName'), '/default/$web')]",
       "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ]
+      ],
+      "properties": {
+        "publicAccess": "None"
+      }
     },
     {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
@@ -66,7 +87,7 @@
         "azCliVersion": "2.40.0",
         "timeout": "PT15M",
         "retentionInterval": "P1D",
-        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
+        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login && az storage blob service-properties update --account-name ${storageAccountName} --static-website --index-document index.html --404-document index.html",
         "supportingScriptUris": [],
         "forceUpdateTag": "1.0",
         "environmentVariables": [
