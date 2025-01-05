@@ -2,7 +2,7 @@ const video = document.getElementById('video');
 const serverUrl = new URLSearchParams(window.location.search).get('server');
 
 if (navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } })
+    navigator.mediaDevices.getUserMedia({ video: true })
         .then(function (stream) {
             video.srcObject = stream;
             const canvas = document.createElement('canvas');
@@ -21,6 +21,7 @@ if (navigator.mediaDevices.getUserMedia) {
             }, 33); // 30fps for better touch screen performance
         })
         .catch(function (error) {
+            console.log(error)
             console.log("Something went wrong!");
         });
 }
