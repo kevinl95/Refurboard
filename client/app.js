@@ -1,5 +1,6 @@
 const video = document.getElementById('video');
-const serverUrl = new URL(new URLSearchParams(window.location.search).get('server'));
+const serverIp = new URLSearchParams(window.location.search).get('server');
+const serverUrl = new URL(`http://${serverIp}`);
 console.log(serverUrl)
 if (navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true })
