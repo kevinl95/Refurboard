@@ -26,6 +26,8 @@ app = Flask(__name__, static_folder='client')
 
 # Add this line to track the last time the stream function was called
 last_stream_time = 0
+cX = 0
+cY = 0
 
 class RefurboardApp(App):
     def build(self):
@@ -35,7 +37,6 @@ class RefurboardApp(App):
 
         # Parameters
         self.ip_address = ''
-        
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)
@@ -101,8 +102,8 @@ class RefurboardApp(App):
         cert.get_subject().C = "US"
         cert.get_subject().ST = "California"
         cert.get_subject().L = "San Francisco"
-        cert.get_subject().O = "My Company"
-        cert.get_subject().OU = "My Organization"
+        cert.get_subject().O = "Refurboard"
+        cert.get_subject().OU = "Refurboard"
         cert.get_subject().CN = hostname
         cert.set_serial_number(random.randint(0, 1000000000))
         cert.gmtime_adj_notBefore(0)
@@ -130,7 +131,7 @@ class RefurboardApp(App):
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(certfile=cert_file, keyfile=key_file)
 
-        thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': port, 'ssl_context': context})
+        thread = Thread(target=lambda: app.run(host=self.ip_address, port=port, ssl_context=context, use_reloader=False))
         thread.start()
 
     def generate_qr_code(self, data):
@@ -143,11 +144,21 @@ class RefurboardApp(App):
         buffer.seek(0)
         self.qr_image.texture = CoreImage(buffer, ext='png').texture
 
-    def _update_lines(self, instance, value):
+    def _update_lines(self, _instance, _value):
         self.line1.points = [50, Window.height - 50, 100, Window.height - 100]
         self.line2.points = [50, Window.height - 100, 100, Window.height - 50]
 
-    def show_calibration_screen(self, instance):
+    def show_calibration_screen(self, _instance):
+        # Create values for the bounding box
+        # Create values for the bounding box
+        self.upperLeftX = 0
+        self.upperLeftY = 0
+        self.upperRightX = 0
+        self.upperRightY = 0
+        self.lowerLeftX = 0
+        self.lowerLeftY = 0
+        self.lowerRightX = 0
+        self.lowerRightY = 0
         self.layout.clear_widgets()  # Clear the existing widgets
         # Make the window full screen
         Window.fullscreen = 'auto'
@@ -157,19 +168,74 @@ class RefurboardApp(App):
             self.layout.bind(size=self._update_rect, pos=self._update_rect)
         
         # Add the calibration instruction label
-        self.calibration_label = Label(text='Use your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
+        self.calibration_label = Label(text='Activate your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
         self.layout.add_widget(self.calibration_label)
         
+        # Upper Left calibration
+        oldX = cX
+        oldY = cY
         with self.layout.canvas:
             Color(1, 0, 0, 1)  # Set the color to red
             # Draw a red X target in the top left corner
             self.line1 = Line(points=[50, Window.height - 50, 100, Window.height - 100], width=2)
             self.line2 = Line(points=[50, Window.height - 100, 100, Window.height - 50], width=2)
             self.layout.bind(size=self._update_lines, pos=self._update_lines)
-    
+        self._update_rect(self.layout, None)
+        while (oldX == cX and oldY == cY):
+            oldX = cX
+        self.upperLeftX = cX
+        self.upperLeftY = cY
+        # Upper Right calibration
+        self.layout.clear_widgets()  # Clear the existing widgets
+        oldX = cX
+        oldY = cY
+        with self.layout.canvas:
+            Color(1, 0, 0, 1)  # Set the color to red
+            # Draw a red X target in the top right corner
+            self.line1 = Line(points=[Window.width - 50, Window.height - 50, Window.width - 100, Window.height - 100], width=2)
+            self.line2 = Line(points=[Window.width - 50, Window.height - 100, Window.width - 100, Window.height - 50], width=2)
+            self.layout.bind(size=self._update_lines, pos=self._update_lines)
+        self._update_rect(self.layout, None)
+        while (oldX == cX and oldY == cY):
+            oldX = cX
+        self.upperRightX = cX
+        self.upperRightY = cY
+
+        # Lower Right calibration
+        self.layout.clear_widgets()  # Clear the existing widgets
+        oldX = cX
+        oldY = cY
+        with self.layout.canvas:
+            Color(1, 0, 0, 1)  # Set the color to red
+            # Draw a red X target in the bottom right corner
+            self.line1 = Line(points=[Window.width - 50, 50, Window.width - 100, 100], width=2)
+            self.line2 = Line(points=[Window.width - 50, 100, Window.width - 100, 50], width=2)
+            self.layout.bind(size=self._update_lines, pos=self._update_lines)
+        self._update_rect(self.layout, None)
+        while (oldX == cX and oldY == cY):
+            oldX = cX
+        self.lowerRightX = cX
+        self.lowerRightY = cY
+
+        # Lower Left calibration
+        self.layout.clear_widgets()  # Clear the existing widgets
+        oldX = cX
+        oldY = cY
+        with self.layout.canvas:
+            Color(1, 0, 0, 1)  # Set the color to red
+            # Draw a red X target in the bottom left corner
+            self.line1 = Line(points=[50, 50, 100, 100], width=2)
+            self.line2 = Line(points=[50, 100, 100, 50], width=2)
+            self.layout.bind(size=self._update_lines, pos=self._update_lines)
+        self._update_rect(self.layout, None)
+        while (oldX == cX and oldY == cY):
+            oldX = cX
+        self.lowerLeftX = cX
+        self.lowerLeftY = cY
+        print("Calibration complete")
         self._update_rect(self.layout, None)
 
-    def show_settings_menu(self, instance):
+    def show_settings_menu(self, _instance):
         self.layout.clear_widgets()  # Clear the existing widgets
         with self.layout.canvas.before:
             Color(1, 1, 1, 1)  # Set the color to white
@@ -189,11 +255,11 @@ class RefurboardApp(App):
         self.save_button.bind(on_press=self.save_settings)
         self.layout.add_widget(self.save_button)
 
-    def save_settings(self, instance):
+    def save_settings(self, _instance):
         self.base_url = self.url_input.text
         self.rebuild_main_screen()
 
-    def update_status(self, dt):
+    def update_status(self, _dt):
         global last_stream_time
         if time.time() - last_stream_time < 5:
             self.status_label.text = 'Client connected'
@@ -209,6 +275,8 @@ def get_ip():
 @app.route('/stream', methods=['POST'])
 def stream():
     global last_stream_time
+    global cX
+    global cY
     last_stream_time = time.time()  # Update the last stream time
     data = request.json
     image_data = base64.b64decode(data['image'])
@@ -219,6 +287,8 @@ def stream():
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Adjust thresholds for green-to-white transition
+    # TODO: Add sliders to adjust these values
+    # TODO: Add thresholds for other colors of LEDs than green
     lower_bound = np.array([30, 50, 150])  # Adjust for whitish LEDs
     upper_bound = np.array([90, 255, 255])
 
@@ -245,8 +315,6 @@ def stream():
             if M["m00"] != 0:
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
-                print(cX)
-                print(cY)
                 return jsonify({'x': cX, 'y': cY})
 
     return jsonify({'error': 'LED not found'})
