@@ -5,6 +5,7 @@ import base64
 import cv2
 import numpy as np
 import urllib.parse
+import ssl
 from io import BytesIO
 from flask import Flask, jsonify, request, send_from_directory
 from threading import Thread
@@ -18,6 +19,7 @@ from kivy.uix.textinput import TextInput
 from kivy.core.image import Image as CoreImage
 from kivy.clock import Clock
 from kivy.core.window import Window
+from OpenSSL import crypto
 
 app = Flask(__name__, static_folder='client')
 
@@ -81,13 +83,44 @@ class RefurboardApp(App):
             s.close()
         return IP
 
+    def generate_self_signed_cert(self, hostname, cert_file, key_file):
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 2048)
+
+        cert = crypto.X509()
+        cert.get_subject().C = "US"
+        cert.get_subject().ST = "California"
+        cert.get_subject().L = "San Francisco"
+        cert.get_subject().O = "My Company"
+        cert.get_subject().OU = "My Organization"
+        cert.get_subject().CN = hostname
+        cert.set_serial_number(random.randint(0, 1000000000))
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(10*365*24*60*60)
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha256')
+
+        with open(cert_file, "wt") as f:
+            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8"))
+        with open(key_file, "wt") as f:
+            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("utf-8"))
+
     def start_server(self, _):
         self.ip_address = self.get_ip_address()
         port = random.randint(1024, 65535)  # Choose a random port between 1024 and 65535
-        self.base_url = f"http://{self.ip_address}:{port}"
-        self.label.text = f"HTTP server running at {self.base_url}"
+        self.base_url = f"https://{self.ip_address}:{port}"
+        self.label.text = f"HTTPS server running at {self.base_url}"
         self.generate_qr_code(f"{self.base_url}/index.html?server={self.base_url}")
-        thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': port})
+
+        cert_file = "server.crt"
+        key_file = "server.key"
+        self.generate_self_signed_cert(self.ip_address, cert_file, key_file)
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile=cert_file, keyfile=key_file)
+
+        thread = Thread(target=app.run, kwargs={'host': self.ip_address, 'port': port, 'ssl_context': context})
         thread.start()
 
     def generate_qr_code(self, data):

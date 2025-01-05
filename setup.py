@@ -4,7 +4,7 @@ from cx_Freeze import setup, Executable
 # Dependencies are automatically detected, but it might need fine-tuning.
 build_exe_options = {
     "packages": ["os", "qrcode", "base64", "cv2", "numpy", "flask", "kivy"],
-    "include_files": ["assets/logo.png"],
+    "include_files": [("assets", "assets"), ("client", "client")],
     "excludes": []
 }
 

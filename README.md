@@ -1,7 +1,7 @@
 ![A smart phone with two blue and orange people leaping out of the screen. Below is the text Refurboard.](assets/logo.png)
 # Refurboard
 
-[![Client Azure Deployment](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-purple-rock-06db10710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-purple-rock-06db10710.yml) [![Homepage Azure Deployment](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)
+[![Homepage Azure Deployment](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)
 
 # Deploy Client
 
