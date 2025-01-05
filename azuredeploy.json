@@ -14,8 +14,7 @@
       "properties": {
         "supportsHttpsTrafficOnly": true,
         "allowBlobPublicAccess": true,
-        "minimumTlsVersion": "TLS1_2",
-        "publicAccess": "Container"
+        "minimumTlsVersion": "TLS1_2"
       }
     },
     {
@@ -56,6 +55,7 @@
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2020-04-01-preview",
       "name": "[guid(resourceGroup().id, variables('identityName'), variables('storageBlobDataContributorRole'))]",
+      "scope": "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
       "dependsOn": [
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
@@ -102,7 +102,7 @@
   "variables": {
     "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
     "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
-    "storageBlobDataContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
+    "storageBlobDataContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
   },
   "outputs": {
     "staticWebsiteUrl": {
