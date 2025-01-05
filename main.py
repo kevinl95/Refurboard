@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import urllib.parse
 import ssl
+import time
 from io import BytesIO
 from flask import Flask, jsonify, request, send_from_directory
 from threading import Thread
@@ -23,6 +24,9 @@ from OpenSSL import crypto
 
 app = Flask(__name__, static_folder='client')
 
+# Add this line to track the last time the stream function was called
+last_stream_time = 0
+
 class RefurboardApp(App):
     def build(self):
         self.icon = 'assets/logo.png'  # Set the application icon
@@ -35,6 +39,10 @@ class RefurboardApp(App):
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)
+        
+        # Add the status label
+        self.status_label = Label(text='Client disconnected', color=(1, 0, 0, 1))  # Set label text color to red
+        self.layout.add_widget(self.status_label)
         
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))  # Set label text color to black
         self.layout.add_widget(self.label)
@@ -52,6 +60,7 @@ class RefurboardApp(App):
         self.layout.add_widget(self.settings_button)
         
         Clock.schedule_once(self.start_server, 1)
+        Clock.schedule_interval(self.update_status, 1)  # Check the status every second
         with self.layout.canvas.before:
             Color(1, 1, 1, 1)  # Set the background color to white
             self.rect = Rectangle(size=Window.size, pos=self.layout.pos)
@@ -66,6 +75,7 @@ class RefurboardApp(App):
         self.generate_qr_code(urllib.parse.urljoin(self.base_url, 'index.html?server=' + self.ip_address))
         self.layout.clear_widgets()  # Clear the existing widgets
         self.layout.add_widget(self.logo)
+        self.layout.add_widget(self.status_label)
         self.layout.add_widget(self.label)
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
@@ -183,37 +193,61 @@ class RefurboardApp(App):
         self.base_url = self.url_input.text
         self.rebuild_main_screen()
 
+    def update_status(self, dt):
+        global last_stream_time
+        if time.time() - last_stream_time < 5:
+            self.status_label.text = 'Client connected'
+            self.status_label.color = (0, 1, 0, 1)  # Set label text color to green
+        else:
+            self.status_label.text = 'Client disconnected'
+            self.status_label.color = (1, 0, 0, 1)  # Set label text color to red
+
 @app.route('/ip')
 def get_ip():
     return jsonify('127.0.0.1')
 
 @app.route('/stream', methods=['POST'])
 def stream():
+    global last_stream_time
+    last_stream_time = time.time()  # Update the last stream time
     data = request.json
-    print("Received data:", data)
     image_data = base64.b64decode(data['image'])
     nparr = np.frombuffer(image_data, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Convert the frame to grayscale
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Convert the frame to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Threshold the image to get the LED
-    _, thresh = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY)
+    # Adjust thresholds for green-to-white transition
+    lower_bound = np.array([30, 50, 150])  # Adjust for whitish LEDs
+    upper_bound = np.array([90, 255, 255])
+
+    # Enhance contrast
+    hsv[:, :, 2] = cv2.equalizeHist(hsv[:, :, 2])
+
+    # Apply the color mask
+    mask = cv2.inRange(hsv, lower_bound, upper_bound)
+
+    # Refine the mask
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.dilate(mask, kernel, iterations=2)
 
     # Find contours
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if contours:
-        # Get the largest contour
-        c = max(contours, key=cv2.contourArea)
-        # Get the center of the contour
-        M = cv2.moments(c)
-        if M["m00"] != 0:
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-            # Send the coordinates back to the client or use them as needed
-            return jsonify({'x': cX, 'y': cY})
+        # Filter smaller contours to allow for distant LEDs
+        valid_contours = [c for c in contours if 5 < cv2.contourArea(c) < 1000]
+        if valid_contours:
+            c = max(valid_contours, key=cv2.contourArea)
+            M = cv2.moments(c)
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+                print(cX)
+                print(cY)
+                return jsonify({'x': cX, 'y': cY})
 
     return jsonify({'error': 'LED not found'})
 
