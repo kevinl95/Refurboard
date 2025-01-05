@@ -1,0 +1,7 @@
+site_name: Refurboard
+
+theme:
+  name: landing
+
+  favicon: "assets/logo.ico"
+  avatar: "assets/logo.png"

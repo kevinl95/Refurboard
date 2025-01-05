@@ -18,6 +18,8 @@ opencv-python = "^4.10.0.84"
 
 [tool.poetry.group.dev.dependencies]
 cx-freeze = "^7.2.8"
+mkdocs = "^1.6.1"
+mkdocs-landing = "^0.0.8"
 
 [build-system]
 requires = ["poetry-core"]
