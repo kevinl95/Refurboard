@@ -1,9 +1,8 @@
 const video = document.getElementById('video');
 const serverIp = new URLSearchParams(window.location.search).get('server');
-const serverUrl = new URL(`${window.location.protocol}//${serverIp}`);
 
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
+function startVideo(constraints) {
+    navigator.mediaDevices.getUserMedia(constraints)
         .then(function (stream) {
             video.srcObject = stream;
             const canvas = document.createElement('canvas');
@@ -12,7 +11,7 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             setInterval(() => {
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 const imageData = canvas.toDataURL('image/png').split(',')[1];
-                fetch(`${serverUrl}/stream`, {
+                fetch(`https://${serverIp}/stream`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -22,7 +21,22 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             }, 33); // 30fps for better touch screen performance
         })
         .catch(function (error) {
-            console.log(error)
+            console.log(error);
             console.log("Something went wrong!");
         });
 }
+
+const constraints = {
+    video: {
+        facingMode: { exact: 'environment' }
+    }
+};
+
+navigator.mediaDevices.getUserMedia(constraints)
+    .then(stream => {
+        startVideo(constraints);
+    })
+    .catch(error => {
+        console.log('Environment camera not found, trying user camera');
+        startVideo({ video: { facingMode: 'user' } });
+    });
