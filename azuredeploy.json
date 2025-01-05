@@ -35,9 +35,11 @@
       "kind": "StorageV2",
       "properties": {
         "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": true,
         "staticWebsite": {
           "enabled": true,
-          "indexDocument": "index.html"
+          "indexDocument": "index.html",
+          "errorDocument404Path": "404.html"
         }
       }
     },
@@ -56,7 +58,7 @@
   "outputs": {
     "staticWebsiteUrl": {
       "type": "string",
-      "value": "[format('https://{0}.web.core.windows.net', parameters('storageAccountName'))]"
+      "value": "[format('https://{0}.z13.web.core.windows.net', parameters('storageAccountName'))]"
     }
   }
 }
