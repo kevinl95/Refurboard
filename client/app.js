@@ -2,7 +2,7 @@ const video = document.getElementById('video');
 const serverUrl = new URLSearchParams(window.location.search).get('server');
 
 if (navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } })
         .then(function (stream) {
             video.srcObject = stream;
             const canvas = document.createElement('canvas');
