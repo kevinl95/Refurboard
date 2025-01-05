@@ -98,11 +98,11 @@
       "kind": "AzureCLI",
       "properties": {
         "azCliVersion": "2.40.0",
-        "timeout": "PT15M",
+        "timeout": "PT30M",
         "retentionInterval": "P1D",
-        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login && az storage blob service-properties update --account-name ${storageAccountName} --static-website --index-document index.html --404-document index.html --auth-mode login",
-        "supportingScriptUris": [],
-        "forceUpdateTag": "1.0",
+        "scriptContent": "sleep 30 && az storage blob service-properties update --account-name ${storageAccountName} --static-website --index-document index.html --404-document index.html --auth-mode login && wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
+        "cleanupPreference": "OnSuccess",
+        "forceUpdateTag": "[parameters('utcValue')]",
         "environmentVariables": [
           {
             "name": "storageAccountName",
@@ -116,6 +116,12 @@
     "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
     "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
     "storageBlobDataOwnerRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]"
+  },
+  "parameters": {
+    "utcValue": {
+      "type": "string",
+      "defaultValue": "[utcNow()]"
+    }
   },
   "outputs": {
     "staticWebsiteUrl": {
