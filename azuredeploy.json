@@ -53,6 +53,24 @@
       "properties": {
         "publicAccess": "Blob"
       }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2020-10-01",
+      "name": "uploadStaticWebsiteFiles",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', format('{0}/default/{1}', parameters('storageAccountName'), parameters('containerName')))]"
+      ],
+      "properties": {
+        "azPowerShellVersion": "2.5.0",
+        "scriptContent": "param([string] $storageAccountName, [string] $containerName)\n$ErrorActionPreference = 'Stop'\n$storageAccountKey = (Get-AzStorageAccountKey -ResourceGroupName $env:RESOURCE_GROUP_NAME -Name $storageAccountName).Value[0]\n$context = New-AzStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey\n$localPath = 'client'\n$files = Get-ChildItem -Recurse -File -Path $localPath\nforeach ($file in $files) {\n    $relativePath = $file.FullName.Substring($localPath.Length + 1).Replace('\\', '/')\n    Set-AzStorageBlobContent -File $file.FullName -Container $containerName -Blob $relativePath -Context $context\n}",
+        "arguments": "[parameters('storageAccountName')] [parameters('containerName')]",
+        "cleanupPreference": "OnSuccess",
+        "retentionInterval": "P1D",
+        "forceUpdateTag": "1"
+      }
     }
   ],
   "outputs": {
