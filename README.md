@@ -1,6 +1,8 @@
 ![A smart phone with two blue and orange people leaping out of the screen. Below is the text Refurboard.](assets/logo.png)
 # Refurboard
 
+[![Azure Static Web Apps CI/CD](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)
+
 # Deploy Client
 
 The default client is publicly hosted by me on Azure here:
