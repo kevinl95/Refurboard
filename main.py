@@ -150,7 +150,6 @@ class RefurboardApp(App):
 
     def show_calibration_screen(self, _instance):
         # Create values for the bounding box
-        # Create values for the bounding box
         self.upperLeftX = 0
         self.upperLeftY = 0
         self.upperRightX = 0
@@ -171,67 +170,46 @@ class RefurboardApp(App):
         self.calibration_label = Label(text='Activate your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
         self.layout.add_widget(self.calibration_label)
         
-        # Upper Left calibration
-        oldX = cX
-        oldY = cY
-        with self.layout.canvas:
-            Color(1, 0, 0, 1)  # Set the color to red
-            # Draw a red X target in the top left corner
-            self.line1 = Line(points=[50, Window.height - 50, 100, Window.height - 100], width=2)
-            self.line2 = Line(points=[50, Window.height - 100, 100, Window.height - 50], width=2)
-            self.layout.bind(size=self._update_lines, pos=self._update_lines)
-        self._update_rect(self.layout, None)
-        while (oldX == cX and oldY == cY):
-            oldX = cX
-        self.upperLeftX = cX
-        self.upperLeftY = cY
-        # Upper Right calibration
-        self.layout.clear_widgets()  # Clear the existing widgets
-        oldX = cX
-        oldY = cY
-        with self.layout.canvas:
-            Color(1, 0, 0, 1)  # Set the color to red
-            # Draw a red X target in the top right corner
-            self.line1 = Line(points=[Window.width - 50, Window.height - 50, Window.width - 100, Window.height - 100], width=2)
-            self.line2 = Line(points=[Window.width - 50, Window.height - 100, Window.width - 100, Window.height - 50], width=2)
-            self.layout.bind(size=self._update_lines, pos=self._update_lines)
-        self._update_rect(self.layout, None)
-        while (oldX == cX and oldY == cY):
-            oldX = cX
-        self.upperRightX = cX
-        self.upperRightY = cY
+        # Function to draw X and wait for tap
+        def draw_and_wait(x1, y1, x2, y2, callback):
+            oldX, oldY = cX, cY
+            with self.layout.canvas:
+                Color(1, 0, 0, 1)  # Set the color to red
+                self.line1 = Line(points=[x1, y1, x2, y2], width=2)
+                self.line2 = Line(points=[x1, y2, x2, y1], width=2)
+                self.layout.bind(size=self._update_lines, pos=self._update_lines)
+            self._update_rect(self.layout, None)
+            def check_position(dt):
+                if oldX != cX or oldY != cY:
+                    callback(cX, cY)
+                else:
+                    Clock.schedule_once(check_position, 0.1)
+            Clock.schedule_once(check_position, 0.1)
 
-        # Lower Right calibration
-        self.layout.clear_widgets()  # Clear the existing widgets
-        oldX = cX
-        oldY = cY
-        with self.layout.canvas:
-            Color(1, 0, 0, 1)  # Set the color to red
-            # Draw a red X target in the bottom right corner
-            self.line1 = Line(points=[Window.width - 50, 50, Window.width - 100, 100], width=2)
-            self.line2 = Line(points=[Window.width - 50, 100, Window.width - 100, 50], width=2)
-            self.layout.bind(size=self._update_lines, pos=self._update_lines)
-        self._update_rect(self.layout, None)
-        while (oldX == cX and oldY == cY):
-            oldX = cX
-        self.lowerRightX = cX
-        self.lowerRightY = cY
+        def upper_left_callback(x, y):
+            self.upperLeftX, self.upperLeftY = x, y
+            self.layout.clear_widgets()  # Clear the existing widgets
+            draw_and_wait(Window.width - 50, Window.height - 50, Window.width - 100, Window.height - 100, upper_right_callback)
 
-        # Lower Left calibration
-        self.layout.clear_widgets()  # Clear the existing widgets
-        oldX = cX
-        oldY = cY
-        with self.layout.canvas:
-            Color(1, 0, 0, 1)  # Set the color to red
-            # Draw a red X target in the bottom left corner
-            self.line1 = Line(points=[50, 50, 100, 100], width=2)
-            self.line2 = Line(points=[50, 100, 100, 50], width=2)
-            self.layout.bind(size=self._update_lines, pos=self._update_lines)
-        self._update_rect(self.layout, None)
-        while (oldX == cX and oldY == cY):
-            oldX = cX
-        self.lowerLeftX = cX
-        self.lowerLeftY = cY
+        def upper_right_callback(x, y):
+            self.upperRightX, self.upperRightY = x, y
+            self.layout.clear_widgets()  # Clear the existing widgets
+            draw_and_wait(Window.width - 50, 50, Window.width - 100, 100, lower_right_callback)
+
+        def lower_right_callback(x, y):
+            self.lowerRightX, self.lowerRightY = x, y
+            self.layout.clear_widgets()  # Clear the existing widgets
+            draw_and_wait(50, 50, 100, 100, lower_left_callback)
+
+        def lower_left_callback(x, y):
+            self.lowerLeftX, self.lowerLeftY = x, y
+            self.layout.clear_widgets()  # Clear the existing widgets
+            print("Calibration complete")
+            self._update_rect(self.layout, None)
+
+        # Start the calibration process
+        draw_and_wait(50, Window.height - 50, 100, Window.height - 100, upper_left_callback)
+
         print("Calibration complete")
         self._update_rect(self.layout, None)
 
