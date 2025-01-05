@@ -3,130 +3,22 @@
   "contentVersion": "1.0.0.0",
   "resources": [
     {
-      "type": "Microsoft.Storage/storageAccounts",
-      "apiVersion": "2021-09-01",
-      "name": "[variables('storageAccountName')]",
-      "location": "[resourceGroup().location]",
+      "type": "Microsoft.Web/staticSites",
+      "apiVersion": "2022-03-01",
+      "name": "RefurboardClient",
+      "location": "WestUS2",
       "sku": {
-        "name": "Standard_LRS"
+        "name": "Free",
+        "tier": "Free"
       },
-      "kind": "StorageV2",
       "properties": {
-        "supportsHttpsTrafficOnly": true,
-        "allowBlobPublicAccess": true,
-        "minimumTlsVersion": "TLS1_2"
-      }
-    },
-    {
-      "type": "Microsoft.Storage/storageAccounts/blobServices",
-      "apiVersion": "2021-09-01",
-      "name": "[concat(variables('storageAccountName'), '/default')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ],
-      "properties": {
-        "cors": {
-          "corsRules": []
-        },
-        "deleteRetentionPolicy": {
-          "enabled": false
+        "repositoryUrl": "https://github.com/kevinl95/Refurboard",
+        "branch": "main",
+        "buildProperties": {
+          "appLocation": "/client",
+          "outputLocation": "/client"
         }
       }
-    },
-    {
-      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-      "apiVersion": "2021-09-01",
-      "name": "[concat(variables('storageAccountName'), '/default/$web')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ],
-      "properties": {
-        "publicAccess": "None"
-      }
-    },
-    {
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2018-11-30",
-      "name": "[variables('identityName')]",
-      "location": "[resourceGroup().location]"
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2021-04-01",
-      "name": "RoleAssignment",
-      "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
-      ],
-      "properties": {
-        "mode": "Incremental",
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "resources": [
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2020-04-01-preview",
-              "name": "[guid(resourceGroup().id, variables('identityName'), variables('storageBlobDataOwnerRole'))]",
-              "properties": {
-                "roleDefinitionId": "[variables('storageBlobDataOwnerRole')]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2018-11-30').principalId]",
-                "principalType": "ServicePrincipal"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2020-10-01",
-      "name": "DeployStaticWebsiteFiles",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]",
-        "[resourceId('Microsoft.Resources/deployments', 'RoleAssignment')]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
-      ],
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
-        }
-      },
-      "kind": "AzureCLI",
-      "properties": {
-        "azCliVersion": "2.40.0",
-        "timeout": "PT30M",
-        "retentionInterval": "P1D",
-        "scriptContent": "sleep 30 && az storage blob service-properties update --account-name ${storageAccountName} --static-website --index-document index.html --404-document index.html --auth-mode login && wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
-        "cleanupPreference": "OnSuccess",
-        "forceUpdateTag": "[parameters('utcValue')]",
-        "environmentVariables": [
-          {
-            "name": "storageAccountName",
-            "value": "[variables('storageAccountName')]"
-          }
-        ]
-      }
     }
-  ],
-  "variables": {
-    "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
-    "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
-    "storageBlobDataOwnerRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]"
-  },
-  "parameters": {
-    "utcValue": {
-      "type": "string",
-      "defaultValue": "[utcNow()]"
-    }
-  },
-  "outputs": {
-    "staticWebsiteUrl": {
-      "type": "string",
-      "value": "[concat('https://', variables('storageAccountName'), '.z13.web.core.windows.net')]"
-    }
-  }
+  ]
 }
