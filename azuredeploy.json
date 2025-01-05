@@ -26,36 +26,6 @@
       ]
     },
     {
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2020-10-01",
-      "name": "DeployStaticWebsiteFiles",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]"
-      ],
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[variables('identityId')]": {}
-        }
-      },
-      "kind": "AzureCLI",
-      "properties": {
-        "azCliVersion": "2.40.0",
-        "timeout": "PT15M",
-        "retentionInterval": "P1D",
-        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
-        "supportingScriptUris": [],
-        "forceUpdateTag": "1.0",
-        "environmentVariables": [
-          {
-            "name": "storageAccountName",
-            "value": "[variables('storageAccountName')]"
-          }
-        ]
-      }
-    },
-    {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2018-11-30",
       "name": "[variables('identityName')]",
@@ -74,12 +44,43 @@
         "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName')), '2018-11-30').principalId]",
         "principalType": "ServicePrincipal"
       }
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2020-10-01",
+      "name": "DeployStaticWebsiteFiles",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', '$web')]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, variables('identityName'), variables('storageBlobDataContributorRole')))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]": {}
+        }
+      },
+      "kind": "AzureCLI",
+      "properties": {
+        "azCliVersion": "2.40.0",
+        "timeout": "PT15M",
+        "retentionInterval": "P1D",
+        "scriptContent": "wget https://github.com/kevinl95/refurboard/archive/refs/heads/main.zip && unzip main.zip && az storage blob upload-batch --destination '$web' --account-name ${storageAccountName} --source ./refurboard-main/client --destination-path '/' --auth-mode login",
+        "supportingScriptUris": [],
+        "forceUpdateTag": "1.0",
+        "environmentVariables": [
+          {
+            "name": "storageAccountName",
+            "value": "[variables('storageAccountName')]"
+          }
+        ]
+      }
     }
   ],
   "variables": {
     "storageAccountName": "[concat('stor', uniqueString(resourceGroup().id))]",
     "identityName": "[concat('id-', uniqueString(resourceGroup().id))]",
-    "identityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('identityName'))]",
     "storageBlobDataContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
   },
   "outputs": {
