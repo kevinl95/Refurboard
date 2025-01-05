@@ -45,8 +45,8 @@
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-      "apiVersion": "2022-09-01",
-      "name": "[format('{0}/default/{1}', parameters('storageAccountName'), parameters('containerName'))]",
+      "apiVersion": "2018-02-01",
+      "name": "[substring(format('{0}/default/{1}', parameters('storageAccountName'), parameters('containerName')), 0, 63)]",
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
       ],
@@ -56,11 +56,12 @@
     },
     {
       "type": "Microsoft.Resources/deploymentScripts",
+      "kind": "AzurePowerShell",
       "apiVersion": "2020-10-01",
       "name": "uploadStaticWebsiteFiles",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', parameters('storageAccountName'), 'default', parameters('containerName'))]"
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', format('{0}/default/{1}', parameters('storageAccountName'), parameters('containerName')))]"
       ],
       "properties": {
