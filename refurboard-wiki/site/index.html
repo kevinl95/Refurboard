@@ -205,6 +205,36 @@
     
 </li>
 
+<li class="nav-item">
+<a href="#setup-instructions">Setup Instructions</a>
+    
+    <ul>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    </ul>
+    
+</li>
+
+<li class="nav-item">
+<a href="#building-executables">Building Executables</a>
+    
+    <ul>
+    
+    </ul>
+    
+</li>
+
 </ul>
 
 </nav>
@@ -229,6 +259,70 @@
 <li><strong>Affordable Setup</strong>: Use inexpensive LED pens from discount stores and your old smartphone, providing an interactive whiteboard solution at a fraction of the cost of traditional smartboards.</li>
 <li><strong>Azure-Hosted</strong>: Access comprehensive setup instructions, troubleshooting, and additional resources on our <a href="https://refurboard.com">homepage and Wiki</a>.</li>
 </ul>
+<h1 id="setup-instructions">Setup Instructions</h1>
+<h3 id="installing-python">Installing Python</h3>
+<p>Before setting up Refurboard, ensure you have Python installed on your system.</p>
+<ol>
+<li>Download the latest version of Python from the <a href="https://www.python.org/downloads/">official Python website</a>.</li>
+<li>Follow the installation instructions for your operating system.</li>
+<li>Verify the installation by running:
+    <code>sh
+    python --version</code></li>
+</ol>
+<h3 id="setting-up-poetry">Setting up Poetry</h3>
+<p>To set up Refurboard, you need to install Poetry, a Python dependency manager.</p>
+<ol>
+<li>Install Poetry by following the instructions at <a href="https://python-poetry.org/docs/#installation">Poetry's official website</a>.</li>
+<li>Clone the repository and navigate to the project directory:
+    <code>sh
+    cd /Refurboard</code></li>
+<li>Install the project dependencies:
+    <code>sh
+    poetry install</code></li>
+</ol>
+<h3 id="starting-the-client">Starting the Client</h3>
+<p>Once you've set up Poetry and installed the necessary dependencies, you can start the client.</p>
+<ol>
+<li>Start the Poetry shell:
+    <code>sh
+    poetry shell</code></li>
+<li>Run the client:
+    <code>sh
+    python main.py</code></li>
+</ol>
+<h3 id="scanning-the-qr-code">Scanning the QR Code</h3>
+<p>To connect your smartphone or tablet to the Refurboard system, follow these steps:</p>
+<ol>
+<li>Open your camera or QR code scanning app on your mobile device.</li>
+<li>Scan the QR code displayed on your screen to connect your phone to the system.</li>
+</ol>
+<h3 id="accepting-the-self-signed-certificate">Accepting the Self-Signed Certificate</h3>
+<p>When you scan the QR code, you may be prompted to accept a self-signed certificate. This is necessary for establishing a secure connection. Click "Advanced" or "Continue" when you see the warning and proceed to the next steps.</p>
+<h3 id="using-refurboard-with-your-projector">Using Refurboard with Your Projector</h3>
+<ol>
+<li>
+<p><strong>Position Your Phone</strong>: Point your old smartphone or tablet at the projector screen where you will be displaying content. The camera on your phone will track the LED pen movements on the screen.</p>
+</li>
+<li>
+<p><strong>Start Calibration</strong>: Open Refurboard on your device, then begin the calibration process. The app will prompt you to draw or move the LED pen around the boundaries of the screen. This helps the app recognize the edges of your projected display and adjust accordingly.</p>
+</li>
+<li>
+<p><strong>Track the LED Pen</strong>: Once the calibration is complete, the app will track the LED pen's movements on the screen. The pen will act as a pointer, controlling the mouse cursor on your connected computer, enabling you to interact with the content displayed on the projector.</p>
+</li>
+</ol>
+<h1 id="building-executables">Building Executables</h1>
+<p>You can build Refurboard into a distributable format for easier deployment.</p>
+<ol>
+<li>Ensure you are in the Poetry shell:
+    <code>sh
+    poetry shell</code></li>
+<li>Install the development dependencies:
+    <code>sh
+    poetry install --with dev</code></li>
+<li>Run the build script to create the executable:
+    <code>sh
+    ./build_executable.sh</code></li>
+</ol>
     <nav id="page-controls">
       <a href="#content" id="return-top">
         <i class="fa fa-arrow-up" alt="⇧"></i> Return to top
