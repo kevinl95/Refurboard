@@ -37,6 +37,11 @@ class RefurboardApp(App):
 
         # Parameters
         self.ip_address = ''
+        self.calibrated = False
+        self.mouse_position_thread = Thread(target=self.update_mouse_position)
+        self.mouse_position_thread.daemon = True
+        self.mouse_position_thread.start()
+
         # Add the logo image
         self.logo = Image(source='assets/logo.png', size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5, 'top': 1})
         self.layout.add_widget(self.logo)
@@ -68,6 +73,21 @@ class RefurboardApp(App):
             self.layout.bind(size=self._update_rect, pos=self._update_rect)
         
         return self.layout
+    
+    def update_mouse_position(self):
+        global cX
+        global cY
+        while True:
+            print(self.calibrated)
+            if self.calibrated:
+                screen_width, screen_height = Window.system_size
+                # Map cX and cY to the screen coordinates
+                screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
+                screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
+                # Set the mouse position
+                print("moving mouse")
+                Window.set_system_cursor(screen_x, screen_y)
+            time.sleep(0.1)
 
     def _update_rect(self, instance, _):
         self.rect.size = instance.size
@@ -158,6 +178,7 @@ class RefurboardApp(App):
         self.lowerLeftY = 0
         self.lowerRightX = 0
         self.lowerRightY = 0
+        self.calibrated = False
         self.layout.clear_widgets()  # Clear the existing widgets
         # Make the window full screen
         Window.fullscreen = 'auto'
@@ -169,7 +190,6 @@ class RefurboardApp(App):
         # Add the calibration instruction label
         self.calibration_label = Label(text='Activate your LED pen on each target as it appears.', color=(0, 0, 0, 1), font_size='20sp', halign='center', valign='middle')
         self.layout.add_widget(self.calibration_label)
-        
         # Function to draw X and wait for tap
         def draw_and_wait(x1, y1, x2, y2, callback):
             oldX, oldY = cX, cY
@@ -181,37 +201,42 @@ class RefurboardApp(App):
             self._update_rect(self.layout, None)
             def check_position(dt):
                 if oldX != cX or oldY != cY:
+                    self.layout.canvas.remove(self.line1)
+                    self.layout.canvas.remove(self.line2)
                     callback(cX, cY)
                 else:
-                    Clock.schedule_once(check_position, 0.1)
-            Clock.schedule_once(check_position, 0.1)
+                    Clock.schedule_once(check_position, 0.5)
+            Clock.schedule_once(check_position, 0.5)
 
         def upper_left_callback(x, y):
             self.upperLeftX, self.upperLeftY = x, y
+            time.sleep(5)
             self.layout.clear_widgets()  # Clear the existing widgets
             draw_and_wait(Window.width - 50, Window.height - 50, Window.width - 100, Window.height - 100, upper_right_callback)
 
         def upper_right_callback(x, y):
             self.upperRightX, self.upperRightY = x, y
             self.layout.clear_widgets()  # Clear the existing widgets
+            time.sleep(1)
             draw_and_wait(Window.width - 50, 50, Window.width - 100, 100, lower_right_callback)
 
         def lower_right_callback(x, y):
             self.lowerRightX, self.lowerRightY = x, y
             self.layout.clear_widgets()  # Clear the existing widgets
+            time.sleep(1)
             draw_and_wait(50, 50, 100, 100, lower_left_callback)
 
         def lower_left_callback(x, y):
             self.lowerLeftX, self.lowerLeftY = x, y
+            time.sleep(1)
             self.layout.clear_widgets()  # Clear the existing widgets
             print("Calibration complete")
-            self._update_rect(self.layout, None)
+            self.calibrated = True
+            Window.fullscreen = False  # Return to regular window size
+            self.rebuild_main_screen()
 
         # Start the calibration process
         draw_and_wait(50, Window.height - 50, 100, Window.height - 100, upper_left_callback)
-
-        print("Calibration complete")
-        self._update_rect(self.layout, None)
 
     def show_settings_menu(self, _instance):
         self.layout.clear_widgets()  # Clear the existing widgets
@@ -256,46 +281,28 @@ def stream():
     global cX
     global cY
     last_stream_time = time.time()  # Update the last stream time
+
     data = request.json
-    image_data = base64.b64decode(data['image'])
-    nparr = np.frombuffer(image_data, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    image_data = base64.b64decode(data['image'])  # Decode the image from base64
+    nparr = np.frombuffer(image_data, np.uint8)  # Convert to numpy array
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)  # Decode the image to BGR format
 
-    # Convert the frame to HSV
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Adjust thresholds for green-to-white transition
-    # TODO: Add sliders to adjust these values
-    # TODO: Add thresholds for other colors of LEDs than green
-    lower_bound = np.array([30, 50, 150])  # Adjust for whitish LEDs
-    upper_bound = np.array([90, 255, 255])
+    # Apply a Gaussian blur to the image
+    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
 
-    # Enhance contrast
-    hsv[:, :, 2] = cv2.equalizeHist(hsv[:, :, 2])
+    # Find the brightest spot in the image
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(blurred)
 
-    # Apply the color mask
-    mask = cv2.inRange(hsv, lower_bound, upper_bound)
-
-    # Refine the mask
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.dilate(mask, kernel, iterations=2)
-
-    # Find contours
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if contours:
-        # Filter smaller contours to allow for distant LEDs
-        valid_contours = [c for c in contours if 5 < cv2.contourArea(c) < 1000]
-        if valid_contours:
-            c = max(valid_contours, key=cv2.contourArea)
-            M = cv2.moments(c)
-            if M["m00"] != 0:
-                cX = int(M["m10"] / M["m00"])
-                cY = int(M["m01"] / M["m00"])
-                return jsonify({'x': cX, 'y': cY})
-
-    return jsonify({'error': 'LED not found'})
+    # Check if the brightest spot is significantly brighter than the average brightness
+    # TODO: Add sliders for configurable thresholds
+    if max_val > np.mean(blurred) + 175:  # Adjust the threshold as needed
+        cX, cY = max_loc
+        return jsonify({'x': cX, 'y': cY})
+    else:
+        return jsonify({'error': 'LED not found'})
 
 @app.route('/')
 @app.route('/<path:path>')
