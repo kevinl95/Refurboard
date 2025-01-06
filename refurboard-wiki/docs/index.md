@@ -27,6 +27,10 @@ Visit our [Azure-hosted homepage and Wiki](https://refurboard.com) for more deta
 
 # Setup Instructions
 
+### Download or clone the project
+
+The project can be cloned (using git) or downloaded as a zip from [here](https://github.com/kevinl95/Refurboard)
+
 ### Installing Python
 Before setting up Refurboard, ensure you have Python installed on your system.
 
