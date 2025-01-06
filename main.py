@@ -7,6 +7,7 @@ import numpy as np
 import urllib.parse
 import ssl
 import time
+import pyautogui
 from io import BytesIO
 from flask import Flask, jsonify, request, send_from_directory
 from threading import Thread
@@ -23,6 +24,7 @@ from kivy.core.window import Window
 from OpenSSL import crypto
 
 app = Flask(__name__, static_folder='client')
+pyautogui.FAILSAFE = False
 
 # Add this line to track the last time the stream function was called
 last_stream_time = 0
@@ -78,15 +80,13 @@ class RefurboardApp(App):
         global cX
         global cY
         while True:
-            print(self.calibrated)
             if self.calibrated:
                 screen_width, screen_height = Window.system_size
                 # Map cX and cY to the screen coordinates
                 screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
                 screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
                 # Set the mouse position
-                print("moving mouse")
-                Window.set_system_cursor(screen_x, screen_y)
+                pyautogui.moveTo(screen_x, screen_y)
             time.sleep(0.1)
 
     def _update_rect(self, instance, _):
