@@ -43,6 +43,26 @@ To set up Refurboard, you need to install Poetry, a Python dependency manager.
     poetry install
     ```
 
+### Running Tests
+Refurboard includes a comprehensive test suite to ensure code quality and reliability:
+
+1. Run all tests:
+    ```sh
+    poetry run pytest
+    ```
+
+2. Run tests with coverage report:
+    ```sh
+    poetry run pytest --cov=refurboard
+    ```
+
+3. Run specific test modules:
+    ```sh
+    poetry run pytest tests/test_led_detector.py  # Test computer vision
+    poetry run pytest tests/test_network.py      # Test networking utilities
+    poetry run pytest tests/test_mouse_control.py # Test mouse control
+    ```
+
 ### Starting the Client
 Once you've set up Poetry and installed the necessary dependencies, you can start the client.
 
@@ -70,7 +90,29 @@ When you scan the QR code, you may be prompted to accept a self-signed certifica
    
 2. **Start Calibration**: Open Refurboard on your device, then begin the calibration process. The app will prompt you to draw or move the LED pen around the boundaries of the screen. This helps the app recognize the edges of your projected display and adjust accordingly.
    
-3. **Track the LED Pen**: Once the calibration is complete, the app will track the LED pen's movements on the screen. The pen will act as a pointer, controlling the mouse cursor on your connected computer, enabling you to interact with the content displayed on the projector.
+3. **Track the LED Pen**: Once the calibration is complete, the app will track the LED pen's movements on the screen using computer vision algorithms. The pen will act as a pointer, controlling the mouse cursor on your connected computer, enabling you to interact with the content displayed on the projector.
+
+## Architecture
+
+```
+refurboard/
+├── __init__.py          # Package initialization
+├── server/              # Flask server and SSL utilities
+│   ├── flask_app.py     # RefurboardServer class with organized routes
+│   └── ssl_utils.py     # SSL certificate generation
+├── vision/              # Computer vision processing
+│   └── led_detector.py  # LEDDetector class with advanced algorithms
+├── utils/               # Utility modules
+│   ├── network.py       # IP detection and QR code generation
+│   └── mouse_control.py # Cross-platform mouse control with pynput
+└── ui/                  # User interface components (future expansion)
+```
+
+### Key Components
+- **LEDDetector**: Computer vision with contour analysis, brightness filtering, and circularity detection
+- **RefurboardServer**: Flask server with route management and LED detector integration
+- **Network Utilities**: IP detection and QR code generation
+- **Mouse Control**: Cross-platform mouse movement using pynput
 
 ## Getting Help
 If you run into any issues or need more information on setting up Refurboard, visit our [Azure-hosted homepage](https://refurboard.com). There, you'll find detailed instructions, troubleshooting tips, and an FAQ section.
@@ -90,6 +132,17 @@ You can build Refurboard into a distributable format for easier deployment.
     ```sh
     ./build_executable.sh
     ```
+
+### Development and Contributing
+For developers interested in contributing to Refurboard:
+
+1. **Code Quality**: All code follows professional standards with comprehensive testing
+2. **Testing**: Always run the test suite before submitting changes:
+    ```sh
+    poetry run pytest --cov=refurboard
+    ```
+3. **Modular Design**: New features should follow the existing package structure
+4. **Cross-Platform**: Ensure compatibility across different operating systems
 
 ## License
 This project is licensed under the terms of the Apache-2.0 license. See the [LICENSE](LICENSE) file for details.
