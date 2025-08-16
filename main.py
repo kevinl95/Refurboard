@@ -7,8 +7,8 @@ import numpy as np
 import urllib.parse
 import ssl
 import time
-import pyautogui
 from io import BytesIO
+from pynput import mouse
 from flask import Flask, jsonify, request, send_from_directory
 from threading import Thread
 from kivy.app import App
@@ -24,12 +24,19 @@ from kivy.core.window import Window
 from OpenSSL import crypto
 
 app = Flask(__name__, static_folder='client')
-pyautogui.FAILSAFE = False
 
 # Add this line to track the last time the stream function was called
 last_stream_time = 0
 cX = 0
 cY = 0
+
+def move_mouse(x, y):
+    """Cross-platform mouse movement using pynput"""
+    try:
+        mouse_controller = mouse.Controller()
+        mouse_controller.position = (x, y)
+    except Exception as e:
+        print(f"Failed to move mouse: {e}")
 
 class RefurboardApp(App):
     def build(self):
@@ -59,7 +66,7 @@ class RefurboardApp(App):
         # Add the status label
         self.status_label = Label(text='Client disconnected', color=(1, 0, 0, 1))  # Set label text color to red
         self.layout.add_widget(self.status_label)
-        
+
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))  # Set label text color to black
         self.layout.add_widget(self.label)
         self.qr_image = Image()
@@ -93,8 +100,8 @@ class RefurboardApp(App):
                 # Map cX and cY to the screen coordinates
                 screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
                 screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
-                # Set the mouse position
-                pyautogui.moveTo(screen_x, screen_y)
+                # Use our cross-platform mouse movement function
+                move_mouse(screen_x, screen_y)
             time.sleep(0.1)
 
     def _update_rect(self, instance, _):
@@ -105,6 +112,7 @@ class RefurboardApp(App):
         self.layout.clear_widgets()  # Clear the existing widgets
         self.layout.add_widget(self.logo)
         self.layout.add_widget(self.status_label)
+        self.layout.add_widget(self.mouse_status_label)
         self.layout.add_widget(self.label)
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
