@@ -40,6 +40,14 @@ class RefurboardApp(App):
         # Parameters
         self.ip_address = ''
         self.calibrated = False
+        
+        # LED detection parameters (configurable)
+        self.brightness_threshold = 240
+        self.min_area = 10
+        self.max_area = 500
+        self.circularity_threshold = 0.3
+        self.min_brightness = 200
+        
         self.mouse_position_thread = Thread(target=self.update_mouse_position)
         self.mouse_position_thread.daemon = True
         self.mouse_position_thread.start()
@@ -210,7 +218,7 @@ class RefurboardApp(App):
 
         def upper_left_callback(x, y):
             self.upperLeftX, self.upperLeftY = x, y
-            time.sleep(5)
+            time.sleep(3)
             self.layout.clear_widgets()  # Clear the existing widgets
             draw_and_wait(Window.width - 50, Window.height - 50, Window.width - 100, Window.height - 100, upper_right_callback)
 
@@ -282,27 +290,73 @@ def stream():
     global cY
     last_stream_time = time.time()  # Update the last stream time
 
+    # Get the app instance to access parameters
+    app_instance = RefurboardApp.get_running_app()
+    if not app_instance:
+        return jsonify({'error': 'App instance not found'})
+
     data = request.json
     image_data = base64.b64decode(data['image'])  # Decode the image from base64
     nparr = np.frombuffer(image_data, np.uint8)  # Convert to numpy array
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)  # Decode the image to BGR format
 
-    # Convert the frame to grayscale
+    # Convert to HSV for better color-based detection
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    # Convert to grayscale for brightness analysis
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Apply a Gaussian blur to the image
-    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
-
-    # Find the brightest spot in the image
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(blurred)
-
-    # Check if the brightest spot is significantly brighter than the average brightness
-    # TODO: Add sliders for configurable thresholds
-    if max_val > np.mean(blurred) + 175:  # Adjust the threshold as needed
-        cX, cY = max_loc
-        return jsonify({'x': cX, 'y': cY})
-    else:
-        return jsonify({'error': 'LED not found'})
+    
+    # Create a mask for very bright areas (potential LEDs)
+    # This creates a binary mask where only very bright pixels are white
+    _, bright_mask = cv2.threshold(gray, app_instance.brightness_threshold, 255, cv2.THRESH_BINARY)
+    
+    # Apply morphological operations to clean up the mask
+    kernel = np.ones((3, 3), np.uint8)
+    bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_OPEN, kernel)
+    bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_CLOSE, kernel)
+    
+    # Find contours of bright areas
+    contours, _ = cv2.findContours(bright_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        # Filter contours by area (LEDs should be small but not tiny)
+        valid_contours = []
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if app_instance.min_area < area < app_instance.max_area:
+                # Additional filtering: check if contour is roughly circular
+                perimeter = cv2.arcLength(contour, True)
+                if perimeter > 0:
+                    circularity = 4 * np.pi * area / (perimeter * perimeter)
+                    if circularity > app_instance.circularity_threshold:
+                        valid_contours.append(contour)
+        
+        if valid_contours:
+            # Find the brightest contour
+            brightest_contour = None
+            max_brightness = 0
+            
+            for contour in valid_contours:
+                # Create a mask for this contour
+                mask = np.zeros(gray.shape, np.uint8)
+                cv2.fillPoly(mask, [contour], 255)
+                
+                # Calculate mean brightness in this contour
+                mean_brightness = cv2.mean(gray, mask=mask)[0]
+                
+                if mean_brightness > max_brightness:
+                    max_brightness = mean_brightness
+                    brightest_contour = contour
+            
+            if brightest_contour is not None and max_brightness > app_instance.min_brightness:
+                # Calculate the centroid of the brightest contour
+                M = cv2.moments(brightest_contour)
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                    return jsonify({'x': cX, 'y': cY, 'brightness': max_brightness})
+    
+    return jsonify({'error': 'LED not found'})
 
 @app.route('/')
 @app.route('/<path:path>')
