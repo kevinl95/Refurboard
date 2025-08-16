@@ -10,30 +10,44 @@ import os
 from flask import Flask, jsonify, request, send_from_directory
 
 from ..vision.led_detector import LEDDetector
+from ..utils.network import get_ip_address
 
 
 class RefurboardServer:
     """Flask server for Refurboard"""
     
-    def __init__(self, static_folder=None):
-        if static_folder is None:
-            # Get the absolute path to the client directory
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(current_dir))
-            static_folder = os.path.join(project_root, 'client')
-        
-        self.app = Flask(__name__, static_folder=static_folder)
-        self.led_detector = LEDDetector()
-        self.last_stream_time = 0
-        self.current_position = {'x': 0, 'y': 0}
+    def __init__(self, host='0.0.0.0', port=5000):
+        self.app = Flask(__name__, static_folder='../../client', static_url_path='')
+        self.host = host
+        self.port = port
+        self.detector = LEDDetector(led_color='green')  # Default to green
+        self.latest_position = None
+        self.last_stream_time = 0  # Initialize stream time tracking
         self._setup_routes()
+        
+    def update_led_color(self, color):
+        """Update the LED color for detection"""
+        self.detector = LEDDetector(led_color=color)
     
     def _setup_routes(self):
         """Setup Flask routes"""
         
         @self.app.route('/ip')
         def get_ip():
-            return jsonify('127.0.0.1')
+            return jsonify({'ip': get_ip_address()})
+            
+        @self.app.route('/led-color', methods=['GET', 'POST'])
+        def led_color():
+            if request.method == 'POST':
+                data = request.get_json()
+                color = data.get('color', 'green')
+                if color in ['red', 'green', 'blue', 'white', 'any']:
+                    self.update_led_color(color)
+                    return jsonify({'status': 'success', 'color': color})
+                else:
+                    return jsonify({'status': 'error', 'message': 'Invalid color'}), 400
+            else:
+                return jsonify({'color': self.detector.led_color})
         
         @self.app.route('/stream', methods=['POST'])
         def stream():
@@ -41,7 +55,7 @@ class RefurboardServer:
             
             # Use default LED detection parameters for now
             # TODO: Make these configurable through a proper settings interface
-            self.led_detector.update_parameters(
+            self.detector.update_parameters(
                 brightness_threshold=240,
                 min_area=10,
                 max_area=500,
@@ -54,7 +68,7 @@ class RefurboardServer:
             nparr = np.frombuffer(image_data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
-            result = self.led_detector.detect_led(frame)
+            result = self.detector.detect_led(frame)
             
             if 'x' in result and 'y' in result:
                 self.current_position = {'x': result['x'], 'y': result['y']}

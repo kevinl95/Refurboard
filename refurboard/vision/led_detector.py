@@ -10,12 +10,21 @@ class LEDDetector:
     """Advanced LED detection using computer vision"""
     
     def __init__(self, brightness_threshold=240, min_area=10, max_area=500, 
-                 circularity_threshold=0.3, min_brightness=200):
+                 circularity_threshold=0.3, min_brightness=200, led_color='green'):
         self.brightness_threshold = brightness_threshold
         self.min_area = min_area
         self.max_area = max_area
         self.circularity_threshold = circularity_threshold
         self.min_brightness = min_brightness
+        self.led_color = led_color
+        
+        # Define HSV color ranges for different LED colors
+        self.color_ranges = {
+            'red': [(0, 100, 100), (10, 255, 255), (160, 100, 100), (180, 255, 255)],  # Red wraps around
+            'green': [(40, 100, 100), (80, 255, 255)],
+            'blue': [(100, 100, 100), (130, 255, 255)],
+            'white': [(0, 0, 200), (180, 30, 255)],  # Low saturation, high value
+        }
     
     def detect_led(self, frame):
         """
@@ -25,7 +34,7 @@ class LEDDetector:
             frame: BGR image from camera
             
         Returns:
-            dict: {'x': x, 'y': y, 'brightness': brightness} or {'error': message}
+            dict: {'x': x, 'y': y, 'brightness': brightness, 'color': color} or {'error': message}
         """
         # Convert to HSV for better color-based detection
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -33,16 +42,25 @@ class LEDDetector:
         # Convert to grayscale for brightness analysis
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Create a mask for very bright areas (potential LEDs)
+        # Create color mask based on selected LED color
+        color_mask = self._create_color_mask(hsv)
+        
+        # Create brightness mask
         _, bright_mask = cv2.threshold(gray, self.brightness_threshold, 255, cv2.THRESH_BINARY)
+        
+        # Combine color and brightness masks
+        if color_mask is not None:
+            combined_mask = cv2.bitwise_and(color_mask, bright_mask)
+        else:
+            combined_mask = bright_mask
         
         # Apply morphological operations to clean up the mask
         kernel = np.ones((3, 3), np.uint8)
-        bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_OPEN, kernel)
-        bright_mask = cv2.morphologyEx(bright_mask, cv2.MORPH_CLOSE, kernel)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
         
-        # Find contours of bright areas
-        contours, _ = cv2.findContours(bright_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Find contours of bright colored areas
+        contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
             # Filter contours by area and shape
@@ -56,10 +74,42 @@ class LEDDetector:
                     # Calculate the centroid
                     x, y = self._calculate_centroid(brightest_contour)
                     if x is not None and y is not None:
-                        return {'x': x, 'y': y, 'brightness': max_brightness}
+                        return {
+                            'x': x, 
+                            'y': y, 
+                            'brightness': max_brightness,
+                            'color': self.led_color
+                        }
         
         return {'error': 'LED not found'}
     
+    def _create_color_mask(self, hsv_frame):
+        """
+        Create a color mask based on the selected LED color
+        
+        Args:
+            hsv_frame: HSV image
+            
+        Returns:
+            Binary mask or None if using brightness-only detection
+        """
+        if self.led_color not in self.color_ranges:
+            return None
+            
+        color_range = self.color_ranges[self.led_color]
+            
+        # Handle red color wraparound in HSV space
+        if self.led_color == 'red':
+            # Red spans 0-10 and 160-180 in HSV hue
+            mask1 = cv2.inRange(hsv_frame, np.array([0, 100, 100]), np.array([10, 255, 255]))
+            mask2 = cv2.inRange(hsv_frame, np.array([160, 100, 100]), np.array([180, 255, 255]))
+            return cv2.bitwise_or(mask1, mask2)
+        else:
+            # Standard color range
+            lower_bound = np.array(color_range[0])
+            upper_bound = np.array(color_range[1])
+            return cv2.inRange(hsv_frame, lower_bound, upper_bound)
+
     def _filter_contours(self, contours):
         """Filter contours by area and circularity"""
         valid_contours = []

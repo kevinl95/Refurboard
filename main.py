@@ -18,6 +18,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
+from kivy.uix.spinner import Spinner
 from kivy.clock import Clock
 from kivy.core.window import Window
 
@@ -87,6 +88,22 @@ class RefurboardApp(App):
         # Add LED tracking status label
         self.led_status_label = Label(text='LED tracking: Waiting for calibration', color=(0.5, 0.5, 0.5, 1))
         self.layout.add_widget(self.led_status_label)
+        
+        # Add LED color selection
+        color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
+                                size=(400, 50), pos_hint={'center_x': 0.5})
+        color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
+        color_layout.add_widget(color_label)
+        
+        self.color_spinner = Spinner(
+            text='Green',
+            values=['Red', 'Green', 'Blue', 'White', 'Any'],
+            size_hint=(None, None),
+            size=(150, 50)
+        )
+        self.color_spinner.bind(text=self.on_color_change)
+        color_layout.add_widget(self.color_spinner)
+        self.layout.add_widget(color_layout)
 
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))
         self.layout.add_widget(self.label)
@@ -158,6 +175,21 @@ class RefurboardApp(App):
         else:
             self.led_status_label.text = f'LED tracking: Out of bounds (x={x:.0f}, y={y:.0f})'
             self.led_status_label.color = (1, 0, 0, 1)  # Red
+
+    def on_color_change(self, spinner, text):
+        """Handle LED color selection change"""
+        color_map = {
+            'Red': 'red',
+            'Green': 'green', 
+            'Blue': 'blue',
+            'White': 'white',
+            'Any': 'any'
+        }
+        
+        selected_color = color_map.get(text, 'green')
+        if hasattr(self, 'server') and self.server:
+            self.server.update_led_color(selected_color)
+            print(f"LED color changed to: {selected_color}")
     
     def is_led_in_bounds(self, x, y):
         """Check if LED position is within the calibrated rectangle"""
@@ -247,13 +279,22 @@ class RefurboardApp(App):
 
     def rebuild_main_screen(self):
         """Rebuild the main screen after calibration/settings"""
-        qr_url = f"{self.base_url}/index.html?server={self.ip_address}"
+        qr_url = f"{self.base_url}/index.html?server={self.base_url}"
         self.qr_image.texture = generate_qr_code(qr_url)
         
         self.layout.clear_widgets()
         self.layout.add_widget(self.logo)
         self.layout.add_widget(self.status_label)
         self.layout.add_widget(self.led_status_label)
+        
+        # Re-add LED color selection
+        color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
+                                size=(400, 50), pos_hint={'center_x': 0.5})
+        color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
+        color_layout.add_widget(color_label)
+        color_layout.add_widget(self.color_spinner)
+        self.layout.add_widget(color_layout)
+        
         self.layout.add_widget(self.label)
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
