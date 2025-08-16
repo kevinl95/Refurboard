@@ -44,6 +44,8 @@ jobs:
       run: poetry install --no-interaction
     
     - name: Run tests with pytest
+      env:
+        CI: true
       run: |
         poetry run pytest --cov=refurboard --cov-report=xml --cov-report=term-missing -v
     
