@@ -22,6 +22,8 @@ pynput = "^1.7.7"
 cx-freeze = "^7.2.8"
 mkdocs = "^1.6.1"
 mkdocs-landing = "^0.0.8"
+pytest = "^8.3.0"
+pytest-cov = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core"]

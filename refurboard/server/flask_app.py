@@ -1,0 +1,77 @@
+"""
+Flask server for handling camera streams and serving the web client
+"""
+
+import time
+import base64
+import cv2
+import numpy as np
+from flask import Flask, jsonify, request, send_from_directory
+
+from ..vision.led_detector import LEDDetector
+
+
+class RefurboardServer:
+    """Flask server for Refurboard"""
+    
+    def __init__(self, static_folder='client'):
+        self.app = Flask(__name__, static_folder=static_folder)
+        self.led_detector = LEDDetector()
+        self.last_stream_time = 0
+        self.current_position = {'x': 0, 'y': 0}
+        self._setup_routes()
+    
+    def _setup_routes(self):
+        """Setup Flask routes"""
+        
+        @self.app.route('/ip')
+        def get_ip():
+            return jsonify('127.0.0.1')
+        
+        @self.app.route('/stream', methods=['POST'])
+        def stream():
+            self.last_stream_time = time.time()
+            
+            # Get the app instance to access parameters
+            from ..ui.app import RefurboardApp
+            app_instance = RefurboardApp.get_running_app()
+            if not app_instance:
+                return jsonify({'error': 'App instance not found'})
+            
+            # Update detector parameters
+            self.led_detector.update_parameters(
+                brightness_threshold=app_instance.brightness_threshold,
+                min_area=app_instance.min_area,
+                max_area=app_instance.max_area,
+                circularity_threshold=app_instance.circularity_threshold,
+                min_brightness=app_instance.min_brightness
+            )
+            
+            data = request.json
+            image_data = base64.b64decode(data['image'])
+            nparr = np.frombuffer(image_data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            result = self.led_detector.detect_led(frame)
+            
+            if 'x' in result and 'y' in result:
+                self.current_position = {'x': result['x'], 'y': result['y']}
+            
+            return jsonify(result)
+        
+        @self.app.route('/')
+        @self.app.route('/<path:path>')
+        def serve_static(path='index.html'):
+            return send_from_directory(self.app.static_folder, path)
+    
+    def get_current_position(self):
+        """Get the current LED position"""
+        return self.current_position
+    
+    def is_client_connected(self):
+        """Check if a client has streamed recently"""
+        return time.time() - self.last_stream_time < 5
+    
+    def run(self, host, port, ssl_context=None, **kwargs):
+        """Run the Flask server"""
+        self.app.run(host=host, port=port, ssl_context=ssl_context, **kwargs)
