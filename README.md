@@ -136,13 +136,13 @@ You can build Refurboard into a distributable format for easier deployment.
 ### Development and Contributing
 For developers interested in contributing to Refurboard:
 
-1. **Code Quality**: All code follows professional standards with comprehensive testing
+1. **Python Compatibility**: Supports Python 3.11, 3.12, and 3.13
 2. **Testing**: Always run the test suite before submitting changes:
     ```sh
     poetry run pytest --cov=refurboard
     ```
 3. **Modular Design**: New features should follow the existing package structure
-4. **Cross-Platform**: Ensure compatibility across different operating systems
+4. **Cross-Platform**: Refurboard supports Windows, Linux, and macOS.
 
 ## License
 This project is licensed under the terms of the Apache-2.0 license. See the [LICENSE](LICENSE) file for details.

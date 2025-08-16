@@ -6,9 +6,20 @@ authors = ["kloeffler95 <kevin.loeffler@colorado.edu>"]
 license = "Apache-2.0"
 readme = "README.md"
 package-mode = false
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Multimedia :: Graphics :: Presentation",
+]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<=3.13"
+python = ">=3.11,<=3.13"
 kivy = "^2.3.0"
 qrcode = {extras = ["pil"], version = "^8.0"}
 pillow = "^11.0.0"
