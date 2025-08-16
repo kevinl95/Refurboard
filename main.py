@@ -25,6 +25,7 @@ from refurboard.utils.network import get_ip_address, generate_qr_code
 from refurboard.utils.mouse_control import move_mouse, is_mouse_control_available
 from refurboard.server.flask_app import RefurboardServer
 from refurboard.server.ssl_utils import generate_self_signed_cert
+from refurboard.ui.calibration import CalibrationManager
 
 
 class RefurboardApp(App):
@@ -38,6 +39,16 @@ class RefurboardApp(App):
         # Parameters
         self.ip_address = ''
         self.calibrated = False
+        
+        # Calibration coordinates (will be set during calibration)
+        self.upperLeftX = 0
+        self.upperLeftY = 0
+        self.upperRightX = 0
+        self.upperRightY = 0
+        self.lowerLeftX = 0
+        self.lowerLeftY = 0
+        self.lowerRightX = 0
+        self.lowerRightY = 0
         
         # LED detection parameters (configurable)
         self.brightness_threshold = 240
@@ -72,6 +83,10 @@ class RefurboardApp(App):
         # Add the status label
         self.status_label = Label(text='Client disconnected', color=(1, 0, 0, 1))
         self.layout.add_widget(self.status_label)
+        
+        # Add LED tracking status label
+        self.led_status_label = Label(text='LED tracking: Waiting for calibration', color=(0.5, 0.5, 0.5, 1))
+        self.layout.add_widget(self.led_status_label)
 
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))
         self.layout.add_widget(self.label)
@@ -117,11 +132,48 @@ class RefurboardApp(App):
                 position = self.server.get_current_position()
                 cX, cY = position['x'], position['y']
                 
-                screen_width, screen_height = Window.system_size
-                screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
-                screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
-                move_mouse(screen_x, screen_y)
+                # Update LED status on UI thread
+                Clock.schedule_once(lambda dt: self.update_led_status(cX, cY), 0)
+                
+                # Check if LED is within calibrated bounds
+                if self.is_led_in_bounds(cX, cY):
+                    screen_width, screen_height = Window.system_size
+                    screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
+                    screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
+                    move_mouse(screen_x, screen_y)
+                # If LED is out of bounds, don't move the mouse
             time.sleep(0.1)
+    
+    def update_led_status(self, x, y):
+        """Update LED status label on UI thread"""
+        if not self.calibrated:
+            self.led_status_label.text = 'LED tracking: Waiting for calibration'
+            self.led_status_label.color = (0.5, 0.5, 0.5, 1)
+        elif x == 0 and y == 0:
+            self.led_status_label.text = 'LED tracking: No LED detected'
+            self.led_status_label.color = (1, 0.5, 0, 1)  # Orange
+        elif self.is_led_in_bounds(x, y):
+            self.led_status_label.text = f'LED tracking: Active (x={x:.0f}, y={y:.0f})'
+            self.led_status_label.color = (0, 1, 0, 1)  # Green
+        else:
+            self.led_status_label.text = f'LED tracking: Out of bounds (x={x:.0f}, y={y:.0f})'
+            self.led_status_label.color = (1, 0, 0, 1)  # Red
+    
+    def is_led_in_bounds(self, x, y):
+        """Check if LED position is within the calibrated rectangle"""
+        if not self.calibrated:
+            return False
+        
+        # Define the calibrated rectangle bounds
+        min_x = min(self.upperLeftX, self.lowerLeftX)
+        max_x = max(self.upperRightX, self.lowerRightX)
+        min_y = min(self.upperLeftY, self.upperRightY)
+        max_y = max(self.lowerLeftY, self.lowerRightY)
+        
+        # Add a small tolerance margin to avoid edge issues
+        tolerance = 10
+        return (min_x - tolerance <= x <= max_x + tolerance and 
+                min_y - tolerance <= y <= max_y + tolerance)
 
     def _update_rect(self, instance, _):
         """Update background rectangle size"""
@@ -169,9 +221,24 @@ class RefurboardApp(App):
             self.status_label.color = (1, 0, 0, 1)
 
     def show_calibration_screen(self, _instance):
-        """Show calibration screen (simplified for now)"""
-        # TODO: Move calibration logic to separate module
-        print("Calibration feature - to be implemented in separate module")
+        """Show calibration screen"""
+        def on_calibration_complete(calibration_data):
+            # Remove calibration screen
+            for child in self.layout.children[:]:
+                if hasattr(child, '__class__') and 'Calibration' in child.__class__.__name__:
+                    self.layout.remove_widget(child)
+            
+            # Apply calibration if successful
+            if CalibrationManager.apply_calibration(self, calibration_data):
+                print("Calibration successful!")
+            else:
+                print("Calibration failed or cancelled")
+            
+            # Rebuild main screen
+            self.rebuild_main_screen()
+        
+        # Start calibration
+        CalibrationManager.start_calibration(self.server, self.layout, on_calibration_complete)
 
     def show_settings_menu(self, _instance):
         """Show settings menu (simplified for now)"""
@@ -186,6 +253,7 @@ class RefurboardApp(App):
         self.layout.clear_widgets()
         self.layout.add_widget(self.logo)
         self.layout.add_widget(self.status_label)
+        self.layout.add_widget(self.led_status_label)
         self.layout.add_widget(self.label)
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
