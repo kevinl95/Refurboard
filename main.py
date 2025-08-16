@@ -72,16 +72,6 @@ class RefurboardApp(App):
         # Add the status label
         self.status_label = Label(text='Client disconnected', color=(1, 0, 0, 1))
         self.layout.add_widget(self.status_label)
-        
-        # Add mouse control status label
-        mouse_status = f"Mouse control: {'Available' if is_mouse_control_available() else 'Unavailable'}"
-        if is_mouse_control_available():
-            mouse_status += " (pynput)"
-        self.mouse_status_label = Label(
-            text=mouse_status, 
-            color=(0, 1, 0, 1) if is_mouse_control_available() else (1, 0.5, 0, 1)
-        )
-        self.layout.add_widget(self.mouse_status_label)
 
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))
         self.layout.add_widget(self.label)
@@ -196,7 +186,6 @@ class RefurboardApp(App):
         self.layout.clear_widgets()
         self.layout.add_widget(self.logo)
         self.layout.add_widget(self.status_label)
-        self.layout.add_widget(self.mouse_status_label)
         self.layout.add_widget(self.label)
         self.layout.add_widget(self.qr_image)
         self.layout.add_widget(self.calibrate_button)
