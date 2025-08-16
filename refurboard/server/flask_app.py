@@ -6,6 +6,7 @@ import time
 import base64
 import cv2
 import numpy as np
+import os
 from flask import Flask, jsonify, request, send_from_directory
 
 from ..vision.led_detector import LEDDetector
@@ -14,7 +15,13 @@ from ..vision.led_detector import LEDDetector
 class RefurboardServer:
     """Flask server for Refurboard"""
     
-    def __init__(self, static_folder='client'):
+    def __init__(self, static_folder=None):
+        if static_folder is None:
+            # Get the absolute path to the client directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(current_dir))
+            static_folder = os.path.join(project_root, 'client')
+        
         self.app = Flask(__name__, static_folder=static_folder)
         self.led_detector = LEDDetector()
         self.last_stream_time = 0
@@ -32,19 +39,14 @@ class RefurboardServer:
         def stream():
             self.last_stream_time = time.time()
             
-            # Get the app instance to access parameters
-            from ..ui.app import RefurboardApp
-            app_instance = RefurboardApp.get_running_app()
-            if not app_instance:
-                return jsonify({'error': 'App instance not found'})
-            
-            # Update detector parameters
+            # Use default LED detection parameters for now
+            # TODO: Make these configurable through a proper settings interface
             self.led_detector.update_parameters(
-                brightness_threshold=app_instance.brightness_threshold,
-                min_area=app_instance.min_area,
-                max_area=app_instance.max_area,
-                circularity_threshold=app_instance.circularity_threshold,
-                min_brightness=app_instance.min_brightness
+                brightness_threshold=240,
+                min_area=10,
+                max_area=500,
+                circularity_threshold=0.3,
+                min_brightness=200
             )
             
             data = request.json
