@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<=3.13"
+python = ">=3.11,<3.14"
 kivy = "^2.3.0"
 qrcode = {extras = ["pil"], version = "^8.0"}
 pillow = "^11.0.0"
