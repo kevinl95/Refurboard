@@ -101,7 +101,7 @@ refurboard/
 │   ├── flask_app.py     # RefurboardServer class with organized routes
 │   └── ssl_utils.py     # SSL certificate generation
 ├── vision/              # Computer vision processing
-│   └── led_detector.py  # LEDDetector class with advanced algorithms
+│   └── led_detector.py  # LEDDetector class
 ├── utils/               # Utility modules
 │   ├── network.py       # IP detection and QR code generation
 │   └── mouse_control.py # Cross-platform mouse control with pynput
