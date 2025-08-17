@@ -22,6 +22,7 @@ class RefurboardServer:
         self.port = port
         self.detector = LEDDetector(led_color='green')  # Default to green
         self.latest_position = None
+        self.current_position = {'x': 0, 'y': 0}  # Initialize current position
         self.last_stream_time = 0  # Initialize stream time tracking
         self._setup_routes()
         

@@ -40,6 +40,8 @@ class RefurboardApp(App):
         # Parameters
         self.ip_address = ''
         self.calibrated = False
+        self.server_ready = False
+        self.calibration_in_progress = False
         
         # Calibration coordinates (will be set during calibration)
         self.upperLeftX = 0
@@ -97,7 +99,7 @@ class RefurboardApp(App):
         
         self.color_spinner = Spinner(
             text='Green',
-            values=['Red', 'Green', 'Blue', 'White', 'Any'],
+            values=['Red', 'Green', 'Blue', 'White'],
             size_hint=(None, None),
             size=(150, 50)
         )
@@ -122,8 +124,8 @@ class RefurboardApp(App):
         self.settings_button.bind(on_press=self.show_settings_menu)
         self.layout.add_widget(self.settings_button)
         
-        # Schedule server start and status updates
-        Clock.schedule_once(self.start_server, 1)
+        # Schedule server start and status updates with a small delay
+        Clock.schedule_once(self.start_server, 2)  # Increased delay for better initialization
         Clock.schedule_interval(self.update_status, 1)
         
         # Set background color
@@ -144,22 +146,33 @@ class RefurboardApp(App):
     
     def update_mouse_position(self):
         """Update mouse position based on LED tracking"""
-        while True:
-            if self.calibrated:
-                position = self.server.get_current_position()
-                cX, cY = position['x'], position['y']
-                
-                # Update LED status on UI thread
-                Clock.schedule_once(lambda dt: self.update_led_status(cX, cY), 0)
-                
-                # Check if LED is within calibrated bounds
-                if self.is_led_in_bounds(cX, cY):
-                    screen_width, screen_height = Window.system_size
-                    screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
-                    screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
-                    move_mouse(screen_x, screen_y)
-                # If LED is out of bounds, don't move the mouse
-            time.sleep(0.1)
+        try:
+            while True:
+                try:
+                    if self.calibrated:
+                        position = self.server.get_current_position()
+                        cX, cY = position['x'], position['y']
+                        
+                        # Update LED status on UI thread
+                        Clock.schedule_once(lambda dt: self.update_led_status(cX, cY), 0)
+                        
+                        # Check if LED is within calibrated bounds
+                        if self.is_led_in_bounds(cX, cY):
+                            try:
+                                screen_width, screen_height = Window.system_size
+                            except Exception:
+                                screen_width, screen_height = Window.size
+                            screen_x = np.interp(cX, [self.upperLeftX, self.upperRightX], [0, screen_width])
+                            screen_y = np.interp(cY, [self.upperLeftY, self.lowerLeftY], [0, screen_height])
+                            move_mouse(screen_x, screen_y)
+                        # If LED is out of bounds, don't move the mouse
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(f"Error in mouse position update: {e}")
+                    time.sleep(1)  # Wait longer on error to prevent spam
+        except Exception as e:
+            print(f"Critical error in mouse position thread: {e}")
+            # Thread will exit gracefully
     
     def update_led_status(self, x, y):
         """Update LED status label on UI thread"""
@@ -178,18 +191,20 @@ class RefurboardApp(App):
 
     def on_color_change(self, spinner, text):
         """Handle LED color selection change"""
-        color_map = {
-            'Red': 'red',
-            'Green': 'green', 
-            'Blue': 'blue',
-            'White': 'white',
-            'Any': 'any'
-        }
-        
-        selected_color = color_map.get(text, 'green')
-        if hasattr(self, 'server') and self.server:
-            self.server.update_led_color(selected_color)
-            print(f"LED color changed to: {selected_color}")
+        try:
+            color_map = {
+                'Red': 'red',
+                'Green': 'green', 
+                'Blue': 'blue',
+                'White': 'white'
+            }
+            
+            selected_color = color_map.get(text, 'green')
+            if hasattr(self, 'server') and self.server and self.server_ready:
+                self.server.update_led_color(selected_color)
+                print(f"LED color changed to: {selected_color}")
+        except Exception as e:
+            print(f"Error changing LED color: {e}")
     
     def is_led_in_bounds(self, x, y):
         """Check if LED position is within the calibrated rectangle"""
@@ -213,48 +228,76 @@ class RefurboardApp(App):
 
     def start_server(self, _):
         """Start the Flask server"""
-        self.ip_address = get_ip_address()
-        port = random.randint(1024, 65535)
-        self.base_url = f"https://{self.ip_address}:{port}"
-        self.label.text = f"HTTPS server running at {self.base_url}"
-        
-        # Generate QR code
-        qr_url = f"{self.base_url}/index.html?server={self.base_url}"
-        self.qr_image.texture = generate_qr_code(qr_url)
+        try:
+            self.ip_address = get_ip_address()
+            port = random.randint(1024, 65535)
+            self.base_url = f"https://{self.ip_address}:{port}"
+            self.label.text = f"HTTPS server running at {self.base_url}"
+            
+            # Generate QR code
+            qr_url = f"{self.base_url}/index.html?server={self.base_url}"
+            self.qr_image.texture = generate_qr_code(qr_url)
 
-        # Generate SSL certificate
-        cert_file = "server.crt"
-        key_file = "server.key"
-        generate_self_signed_cert(self.ip_address, cert_file, key_file)
+            # Generate SSL certificate
+            cert_file = "server.crt"
+            key_file = "server.key"
+            generate_self_signed_cert(self.ip_address, cert_file, key_file)
 
-        # Setup SSL context
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(certfile=cert_file, keyfile=key_file)
+            # Setup SSL context
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=cert_file, keyfile=key_file)
 
-        # Start server in background thread
-        thread = Thread(
-            target=lambda: self.server.run(
-                host=self.ip_address, 
-                port=port, 
-                ssl_context=context, 
-                use_reloader=False
+            # Start server in background thread
+            thread = Thread(
+                target=lambda: self.server.run(
+                    host=self.ip_address, 
+                    port=port, 
+                    ssl_context=context, 
+                    use_reloader=False
+                )
             )
-        )
-        thread.daemon = True
-        thread.start()
+            thread.daemon = True
+            thread.start()
+            
+            # Mark server as ready
+            self.server_ready = True
+        except Exception as e:
+            print(f"Error starting server: {e}")
+            self.label.text = f"Server startup failed: {e}"
 
     def update_status(self, _dt):
         """Update connection status"""
-        if self.server.is_client_connected():
-            self.status_label.text = 'Client connected'
-            self.status_label.color = (0, 1, 0, 1)
-        else:
-            self.status_label.text = 'Client disconnected'
-            self.status_label.color = (1, 0, 0, 1)
+        try:
+            if hasattr(self, 'server') and self.server and self.server_ready:
+                if self.server.is_client_connected():
+                    self.status_label.text = 'Client connected'
+                    self.status_label.color = (0, 1, 0, 1)
+                else:
+                    self.status_label.text = 'Client disconnected'
+                    self.status_label.color = (1, 0, 0, 1)
+        except Exception as e:
+            print(f"Error updating status: {e}")
 
     def show_calibration_screen(self, _instance):
         """Show calibration screen"""
+        # Prevent multiple calibrations or calibration before server is ready
+        if self.calibration_in_progress:
+            print("Calibration already in progress")
+            return
+            
+        if not self.server_ready:
+            print("Server not ready, please wait for QR code to appear")
+            return
+            
+        if not hasattr(self, 'server') or not self.server:
+            print("Server not initialized")
+            return
+        
+        self.calibration_in_progress = True
+        
         def on_calibration_complete(calibration_data):
+            self.calibration_in_progress = False
+            
             # Remove calibration screen
             for child in self.layout.children[:]:
                 if hasattr(child, '__class__') and 'Calibration' in child.__class__.__name__:
@@ -269,8 +312,12 @@ class RefurboardApp(App):
             # Rebuild main screen
             self.rebuild_main_screen()
         
-        # Start calibration
-        CalibrationManager.start_calibration(self.server, self.layout, on_calibration_complete)
+        try:
+            # Start calibration
+            CalibrationManager.start_calibration(self.server, self.layout, on_calibration_complete)
+        except Exception as e:
+            print(f"Error starting calibration: {e}")
+            self.calibration_in_progress = False
 
     def show_settings_menu(self, _instance):
         """Show settings menu (simplified for now)"""
@@ -279,26 +326,45 @@ class RefurboardApp(App):
 
     def rebuild_main_screen(self):
         """Rebuild the main screen after calibration/settings"""
-        qr_url = f"{self.base_url}/index.html?server={self.base_url}"
-        self.qr_image.texture = generate_qr_code(qr_url)
-        
-        self.layout.clear_widgets()
-        self.layout.add_widget(self.logo)
-        self.layout.add_widget(self.status_label)
-        self.layout.add_widget(self.led_status_label)
-        
-        # Re-add LED color selection
-        color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
-                                size=(400, 50), pos_hint={'center_x': 0.5})
-        color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
-        color_layout.add_widget(color_label)
-        color_layout.add_widget(self.color_spinner)
-        self.layout.add_widget(color_layout)
-        
-        self.layout.add_widget(self.label)
-        self.layout.add_widget(self.qr_image)
-        self.layout.add_widget(self.calibrate_button)
-        self.layout.add_widget(self.settings_button)
+        try:
+            if hasattr(self, 'base_url'):
+                qr_url = f"{self.base_url}/index.html?server={self.base_url}"
+                self.qr_image.texture = generate_qr_code(qr_url)
+            
+            self.layout.clear_widgets()
+            self.layout.add_widget(self.logo)
+            self.layout.add_widget(self.status_label)
+            self.layout.add_widget(self.led_status_label)
+            
+            # Re-add LED color selection - recreate the spinner to avoid parent issues
+            color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
+                                    size=(400, 50), pos_hint={'center_x': 0.5})
+            color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
+            color_layout.add_widget(color_label)
+            
+            # Recreate the spinner to avoid parent widget issues
+            if hasattr(self, 'color_spinner') and self.color_spinner:
+                current_color = self.color_spinner.text  # Remember the current selection
+            else:
+                current_color = 'Green'  # Default fallback
+                
+            new_color_spinner = Spinner(
+                text=current_color,
+                values=['Red', 'Green', 'Blue', 'White'],
+                size_hint=(None, None),
+                size=(150, 50)
+            )
+            new_color_spinner.bind(text=self.on_color_change)
+            self.color_spinner = new_color_spinner  # Update the reference
+            color_layout.add_widget(self.color_spinner)
+            self.layout.add_widget(color_layout)
+            
+            self.layout.add_widget(self.label)
+            self.layout.add_widget(self.qr_image)
+            self.layout.add_widget(self.calibrate_button)
+            self.layout.add_widget(self.settings_button)
+        except Exception as e:
+            print(f"Error rebuilding main screen: {e}")
 
 
 if __name__ == '__main__':

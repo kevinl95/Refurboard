@@ -2,6 +2,7 @@
 Calibration module for Refurboard - handles screen boundary calibration
 """
 
+import time
 from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -27,10 +28,15 @@ class CalibrationTarget(Widget):
     
     def update_position(self, *args):
         """Update target position based on screen location"""
-        margin = 50  # Distance from edge
+        margin = 20  # Small margin from actual edge for visibility
         
-        # Use the full system screen size, not the window size
-        screen_width, screen_height = Window.system_size
+        # Use the full window size (which should now be maximized to screen size)
+        try:
+            screen_width, screen_height = Window.size
+            print(f"Target positioning using full window size: {Window.size}")
+        except Exception as e:
+            print(f"Warning: Could not get window size: {e}")
+            screen_width, screen_height = (1200, 800)  # Fallback size
         
         if self.position == 'top_left':
             self.pos = (margin, screen_height - margin - self.target_size)
@@ -84,11 +90,17 @@ class CalibrationScreen(Widget):
     
     def __init__(self, server, callback, **kwargs):
         super().__init__(**kwargs)
+        print("Initializing CalibrationScreen...")
         self.server = server
         self.callback = callback
         
-        # Make this widget fullscreen
-        self.size = Window.system_size
+        # Make this widget fill the entire window
+        try:
+            self.size = Window.size
+            print(f"Using full window size: {Window.size}")
+        except Exception as e:
+            print(f"Error getting window size: {e}")
+            self.size = (1200, 800)  # Fallback size
         self.pos = (0, 0)
         
         # Calibration state
@@ -105,7 +117,25 @@ class CalibrationScreen(Widget):
         
         # Set up UI
         self.setup_ui()
+        
+        # Bind to window size changes to keep calibration screen full size
+        Window.bind(size=self.on_window_size_change)
+        
         self.start_calibration()
+    
+    def on_window_size_change(self, instance, size):
+        """Handle window size change during calibration"""
+        try:
+            width, height = size
+            print(f"CalibrationScreen: Window size changed to: {width}x{height}")
+            self.size = (width, height)
+            
+            # Reposition targets for new window size
+            for target in self.targets:
+                target.calculate_position()
+                print(f"Target {target.position} repositioned to: {target.pos}")
+        except Exception as e:
+            print(f"Error handling window size change: {e}")
     
     def setup_ui(self):
         """Set up the calibration UI"""
@@ -116,10 +146,10 @@ class CalibrationScreen(Widget):
         
         # Instructions with dark background for visibility
         self.instruction_label = Label(
-            text='Calibration: Point LED at the target and wait',
-            size_hint=(1, None), height=80,
+            text='Screen Corner Calibration: Connect your phone, then point LED at each corner target. This maps the phone camera view to screen coordinates.',
+            size_hint=(1, None), height=120,
             color=(0, 0, 0, 1),  # Black text
-            font_size=28,
+            font_size=22,
             bold=True,
             halign='center',
             valign='middle',
@@ -141,13 +171,13 @@ class CalibrationScreen(Widget):
         self.progress_label.bind(texture_size=self.progress_label.setter('text_size'))
         layout.add_widget(self.progress_label)
         
-        # Cancel button
+        # Cancel button - smaller and less prominent
         cancel_button = Button(
-            text='Cancel Calibration',
-            size_hint=(None, None), size=(200, 60),
+            text='Cancel',
+            size_hint=(None, None), size=(120, 40),
             pos_hint={'center_x': 0.5},
-            background_color=(0.8, 0.2, 0.2, 1),  # Red background
-            font_size=16
+            background_color=(0.6, 0.6, 0.6, 1),  # Gray background  
+            font_size=14
         )
         cancel_button.bind(on_press=self.cancel_calibration)
         layout.add_widget(cancel_button)
@@ -206,8 +236,14 @@ class CalibrationScreen(Widget):
         """Update instruction text"""
         if self.current_step < len(self.steps):
             step_name = self.step_names[self.steps[self.current_step]]
-            self.instruction_label.text = f'Point LED at: {step_name}'
-            self.progress_label.text = f'Step {self.current_step + 1} of {len(self.steps)}'
+            
+            # Check if client is connected
+            if hasattr(self.server, 'is_client_connected') and not self.server.is_client_connected():
+                self.instruction_label.text = f'Step {self.current_step + 1}: Please connect your phone first, then point LED at: {step_name}'
+                self.progress_label.text = 'Waiting for phone connection...'
+            else:
+                self.instruction_label.text = f'Step {self.current_step + 1}: Point LED at: {step_name}'
+                self.progress_label.text = f'Step {self.current_step + 1} of {len(self.steps)} - Hold LED steady for 3 seconds'
             
             # Activate current target
             for i, target in enumerate(self.targets):
@@ -223,41 +259,55 @@ class CalibrationScreen(Widget):
         if self.current_step >= len(self.steps):
             return False
         
-        # Get current LED position from server
-        position = self.server.get_current_position()
-        if position['x'] == 0 and position['y'] == 0:
-            return True  # No LED detected yet
-        
-        # Check if LED has been stable at target for enough time
-        current_target = self.targets[self.current_step]
-        target_center_x = current_target.pos[0] + current_target.size[0] / 2
-        target_center_y = current_target.pos[1] + current_target.size[1] / 2
-        
-        # For now, we'll use a simple timeout - in a real implementation,
-        # you'd check if the LED position corresponds to the target location
-        if not hasattr(self, 'step_start_time'):
-            self.step_start_time = time.time()
-        
-        if time.time() - self.step_start_time > 3:  # Wait 3 seconds per target
-            # Record the calibration point
-            step_name = self.steps[self.current_step]
-            self.calibration_points[step_name] = {
-                'led_x': position['x'],
-                'led_y': position['y'],
-                'screen_x': target_center_x,
-                'screen_y': target_center_y
-            }
+        try:
+            # Get current LED position from server
+            position = self.server.get_current_position()
+            if position['x'] == 0 and position['y'] == 0:
+                return True  # No LED detected yet
             
-            # Move to next step
-            self.current_step += 1
-            self.step_start_time = time.time()
-            self.update_instruction()
+            # Check if LED has been stable at target for enough time
+            current_target = self.targets[self.current_step]
+            target_center_x = current_target.pos[0] + current_target.size[0] / 2
+            target_center_y = current_target.pos[1] + current_target.size[1] / 2
+            
+            # For now, we'll use a simple timeout - in a real implementation,
+            # you'd check if the LED position corresponds to the target location
+            if not hasattr(self, 'step_start_time'):
+                self.step_start_time = time.time()
+            
+            elapsed_time = time.time() - self.step_start_time
+            
+            if elapsed_time > 3:  # Wait 3 seconds per target
+                # Record the calibration point
+                step_name = self.steps[self.current_step]
+                self.calibration_points[step_name] = {
+                    'led_x': position['x'],
+                    'led_y': position['y'],
+                    'screen_x': target_center_x,
+                    'screen_y': target_center_y
+                }
+                
+                # Move to next step
+                self.current_step += 1
+                self.step_start_time = time.time()
+                self.update_instruction()
+        except Exception as e:
+            print(f"Error in calibration LED check: {e}")
+            # Continue anyway, don't crash calibration
         
         return True
     
     def finish_calibration(self):
         """Complete the calibration process"""
+        # Clean up scheduled events
         Clock.unschedule(self.check_led_position)
+        
+        # Clean up window bindings
+        try:
+            Window.unbind(size=self.on_window_size_change)
+            Window.unbind(size=self.update_bg, pos=self.update_bg)
+        except:
+            pass
         
         # Calculate calibration parameters
         if len(self.calibration_points) == 4:
@@ -285,7 +335,16 @@ class CalibrationScreen(Widget):
     
     def cancel_calibration(self, instance):
         """Cancel the calibration process"""
+        # Clean up scheduled events
         Clock.unschedule(self.check_led_position)
+        
+        # Clean up window bindings
+        try:
+            Window.unbind(size=self.on_window_size_change)
+            Window.unbind(size=self.update_bg, pos=self.update_bg)
+        except:
+            pass
+            
         self.callback(None)
 
 
@@ -295,20 +354,96 @@ class CalibrationManager:
     @staticmethod
     def start_calibration(server, parent_widget, callback):
         """Start calibration process"""
-        # Store the original window state
-        original_window = Window.fullscreen
-        
-        # Make window fullscreen for calibration
-        Window.fullscreen = 'auto'
+        print("Starting calibration with maximized window...")
         
         def calibration_callback(calibration_data):
-            # Restore original window state
-            Window.fullscreen = original_window
+            # Restore window to normal size after calibration
+            try:
+                print("Restoring window to normal size...")
+                Window.size = (800, 600)
+                Window.left = 100
+                Window.top = 100
+            except Exception as e:
+                print(f"Error restoring window size: {e}")
+            
             callback(calibration_data)
         
-        calibration_screen = CalibrationScreen(server, calibration_callback)
-        parent_widget.add_widget(calibration_screen)
-        return calibration_screen
+        try:
+            # Maximize window to fill screen (safer than fullscreen mode)
+            print("Maximizing window for calibration...")
+            try:
+                # Get actual screen size - try multiple methods
+                screen_width, screen_height = Window.system_size
+                print(f"System size reported: {screen_width}x{screen_height}")
+                
+                # If system_size doesn't give us full screen, try alternative approaches
+                if screen_width <= 800 or screen_height <= 600:
+                    print("System size seems too small, trying alternative methods...")
+                    
+                    # Try to get screen size from environment or use common resolutions
+                    import os
+                    if 'DISPLAY' in os.environ:
+                        try:
+                            # Try to get screen resolution using xrandr if available
+                            import subprocess
+                            result = subprocess.run(['xrandr'], capture_output=True, text=True, timeout=2)
+                            if result.returncode == 0:
+                                for line in result.stdout.split('\n'):
+                                    if ' connected primary' in line or ' connected' in line:
+                                        parts = line.split()
+                                        for part in parts:
+                                            if 'x' in part and part.replace('x', '').replace('+', '').replace('-', '').isdigit():
+                                                w, h = part.split('x')[0], part.split('x')[1].split('+')[0].split('-')[0]
+                                                if w.isdigit() and h.isdigit():
+                                                    screen_width, screen_height = int(w), int(h)
+                                                    print(f"Got screen size from xrandr: {screen_width}x{screen_height}")
+                                                    break
+                                        break
+                        except:
+                            pass
+                    
+                    # Fallback to common resolutions if still too small
+                    if screen_width <= 800 or screen_height <= 600:
+                        screen_width, screen_height = 1920, 1080  # Common default
+                        print(f"Using fallback resolution: {screen_width}x{screen_height}")
+                
+                # Set window to full screen size
+                print(f"Setting window size to: {screen_width}x{screen_height}")
+                Window.size = (screen_width, screen_height)
+                Window.left = 0
+                Window.top = 0
+                
+                # Force window update
+                Window.dispatch('on_resize', screen_width, screen_height)
+                
+                print(f"Window maximized to: {Window.size}")
+                
+                # Give window time to resize
+                import time
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"Error maximizing window: {e}")
+                # Fallback to large window
+                Window.size = (1920, 1080)
+                Window.left = 0
+                Window.top = 0
+            
+            print("Creating calibration screen...")
+            calibration_screen = CalibrationScreen(server, calibration_callback)
+            
+            # Make sure calibration screen matches the new window size
+            calibration_screen.size = Window.size
+            calibration_screen.pos = (0, 0)
+            
+            print("Adding calibration screen to parent widget...")
+            parent_widget.add_widget(calibration_screen)
+            print("Calibration screen setup complete")
+            return calibration_screen
+        except Exception as e:
+            print(f"Error in start_calibration: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     @staticmethod
     def apply_calibration(app_instance, calibration_data):
