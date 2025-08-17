@@ -238,7 +238,7 @@ class RefurboardApp(App):
             qr_url = f"{self.base_url}/index.html?server={self.base_url}"
             self.qr_image.texture = generate_qr_code(qr_url)
 
-            # Generate SSL certificate
+            # Generate or reuse SSL certificate (reuse if IP hasn't changed)
             cert_file = "server.crt"
             key_file = "server.key"
             generate_self_signed_cert(self.ip_address, cert_file, key_file)

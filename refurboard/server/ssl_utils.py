@@ -2,12 +2,61 @@
 SSL certificate generation utilities
 """
 
+import os
 import random
 from OpenSSL import crypto
 
 
-def generate_self_signed_cert(hostname, cert_file, key_file):
-    """Generate a self-signed SSL certificate"""
+def get_cert_hostname(cert_file):
+    """Get the hostname from an existing certificate"""
+    try:
+        with open(cert_file, "rb") as f:
+            cert_data = f.read()
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_data)
+        return cert.get_subject().CN
+    except Exception:
+        return None
+
+
+def cert_exists_and_valid(cert_file, key_file, hostname):
+    """Check if certificate files exist and are valid for the given hostname"""
+    try:
+        # Check if files exist
+        if not (os.path.exists(cert_file) and os.path.exists(key_file)):
+            return False
+        
+        # Check if certificate is for the correct hostname
+        existing_hostname = get_cert_hostname(cert_file)
+        if existing_hostname != hostname:
+            return False
+            
+        # Check if certificate and key are valid together
+        with open(cert_file, "rb") as f:
+            cert_data = f.read()
+        with open(key_file, "rb") as f:
+            key_data = f.read()
+            
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_data)
+        key = crypto.load_privatekey(crypto.FILETYPE_PEM, key_data)
+        
+        # Try to verify the key matches the certificate
+        context = crypto.X509StoreContext(crypto.X509Store(), cert)
+        
+        return True
+    except Exception:
+        return False
+
+
+def generate_self_signed_cert(hostname, cert_file, key_file, force_regenerate=False):
+    """Generate a self-signed SSL certificate, reusing existing one if valid"""
+    
+    # Check if we can reuse existing certificate
+    if not force_regenerate and cert_exists_and_valid(cert_file, key_file, hostname):
+        print(f"Reusing existing SSL certificate for {hostname}")
+        return
+    
+    print(f"Generating new SSL certificate for {hostname}")
+    
     k = crypto.PKey()
     k.generate_key(crypto.TYPE_RSA, 2048)
 
