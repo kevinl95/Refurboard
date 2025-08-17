@@ -74,6 +74,10 @@ class RefurboardApp(App):
         # Bind the window close event
         Window.bind(on_request_close=self.on_request_close)
         
+        # Set minimum window size to ensure all elements fit properly
+        Window.minimum_width = 400
+        Window.minimum_height = 700
+        
         return self.layout
     
     def _build_ui(self):
@@ -118,7 +122,7 @@ class RefurboardApp(App):
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))
         self.layout.add_widget(self.label)
         
-        self.qr_image = Image()
+        self.qr_image = Image(size_hint=(None, None), size=(200, 200), pos_hint={'center_x': 0.5})
         self.layout.add_widget(self.qr_image)
         
         # Add buttons
