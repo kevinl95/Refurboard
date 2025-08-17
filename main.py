@@ -92,8 +92,12 @@ class RefurboardApp(App):
         self.layout.add_widget(self.led_status_label)
         
         # Add LED color selection
-        color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
-                                size=(400, 50), pos_hint={'center_x': 0.5})
+        color_layout = BoxLayout(orientation='horizontal', size_hint=(1, None), 
+                                height=50, spacing=10)
+        
+        # Add spacer to center the content
+        color_layout.add_widget(Label())  # Left spacer
+        
         color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
         color_layout.add_widget(color_label)
         
@@ -105,6 +109,10 @@ class RefurboardApp(App):
         )
         self.color_spinner.bind(text=self.on_color_change)
         color_layout.add_widget(self.color_spinner)
+        
+        # Add spacer to center the content
+        color_layout.add_widget(Label())  # Right spacer
+        
         self.layout.add_widget(color_layout)
 
         self.label = Label(text='Starting Refurboard server...', color=(0, 0, 0, 1))
@@ -337,8 +345,12 @@ class RefurboardApp(App):
             self.layout.add_widget(self.led_status_label)
             
             # Re-add LED color selection - recreate the spinner to avoid parent issues
-            color_layout = BoxLayout(orientation='horizontal', size_hint=(None, None), 
-                                    size=(400, 50), pos_hint={'center_x': 0.5})
+            color_layout = BoxLayout(orientation='horizontal', size_hint=(1, None), 
+                                    height=50, spacing=10)
+            
+            # Add spacer to center the content
+            color_layout.add_widget(Label())  # Left spacer
+            
             color_label = Label(text='LED Color:', size_hint=(None, None), size=(100, 50), color=(0, 0, 0, 1))
             color_layout.add_widget(color_label)
             
@@ -357,6 +369,10 @@ class RefurboardApp(App):
             new_color_spinner.bind(text=self.on_color_change)
             self.color_spinner = new_color_spinner  # Update the reference
             color_layout.add_widget(self.color_spinner)
+            
+            # Add spacer to center the content
+            color_layout.add_widget(Label())  # Right spacer
+            
             self.layout.add_widget(color_layout)
             
             self.layout.add_widget(self.label)
