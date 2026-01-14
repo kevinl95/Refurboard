@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "restore": {
+    "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj": {}
+  },
+  "projects": {
+    "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj",
+        "projectName": "Refurboard.Core",
+        "projectPath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj",
+        "packagesPath": "/home/mrmemory/.nuget/packages/",
+        "outputPath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/mrmemory/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "/usr/lib64/dotnet/library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.100"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "JsonSchema.Net": {
+              "target": "Package",
+              "version": "[6.0.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/lib64/dotnet/sdk/9.0.112/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

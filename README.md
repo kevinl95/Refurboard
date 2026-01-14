@@ -2,147 +2,94 @@
 
 ![A smart phone with two blue and orange people leaping out of the screen. Below is the text Refurboard.](assets/logo.png)
 
-[![Homepage Azure Deployment](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)[![Automated Tests](https://github.com/kevinl95/Refurboard/actions/workflows/test.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/test.yml)
+[![Homepage Azure Deployment](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/azure-static-web-apps-ashy-pebble-0a0fa1710.yml)
+[![Automated Tests](https://github.com/kevinl95/Refurboard/actions/workflows/test.yml/badge.svg)](https://github.com/kevinl95/Refurboard/actions/workflows/test.yml)
 
 ## Overview
 
-Refurboard is an innovative, low-cost solution that turns your old smartphone into an interactive whiteboard for classrooms, businesses, and artists. By leveraging the camera on your device and utilizing computer vision to track LED pens (such as those purchasable at discount retailers, such as FiveBelow), Refurboard enables users to interact with projected displays in real time. Teachers, in particular, can greatly benefit from this tool, as it provides an affordable way to enhance classroom interactivity without requiring expensive equipment.
+Refurboard is entering a full .NET 8 + Avalonia rewrite that modernizes the original LED-pen whiteboard concept. The refreshed stack prioritizes:
 
-Client devices can be running any operating system as long as they can connect to the same network as your computer and have a camera. This means your old Android. iOS device, Windows Phone, and more can have a second life!
+- **OpenCvSharp IR Tracking** (currently in flight) with USB or phone webcam ingestion.
+- **Versioned JSON Settings** that auto-heal, migrate, and align with locale-specific installer SKUs.
+- **Automation Hooks** covering device detection, calibration prompts, and plugin-based OS integrations.
+- **Per-Locale Bundles** so every installer ships shared binaries plus language packs.
 
-Refurboard's design focuses on simplicity and affordability, making it accessible to anyone. You can easily set it up by pointing your phone's camera at your projector screen, calibrating the boundaries, and using an LED pen to control the cursor. Once calibrated, the app tracks the pen's movements and moves the mouse cursor accordingly, creating an interactive whiteboard experience.
+Python-era services (Flask server, Kivy UI, cx_Freeze builds, pytest suites) have been removed from this repository. Historical details remain in Git history and the MkDocs wiki for reference.
 
-### Key Benefits:
-- **Impact for Teachers**: Teachers can turn any old smartphone into an interactive tool for their classroom, enabling students to interact with lessons in real-time. This helps make learning more engaging and interactive without a big investment in hardware.
-- **Low-Cost Setup**: You don't need expensive smartboards or interactive projectors. Refurboard uses affordable LED pens (available at discount stores like FiveBelow) and old smartphones, minimizing costs while still offering powerful functionality.
-- **Simple Calibration**: Setting up Refurboard is easy. Point your phone at your projector screen, run the calibration process, and the app will learn the boundaries of the screen. The LED pen then becomes a pointer, and the app will track its movement, controlling the mouse cursor on your connected computer.
-- **Cross-Platform Compatibility**: Refurboard works on a variety of devices, including Android, iOS, and Windows, so you can use it with devices you already own.
+Visit the [Azure-hosted homepage and Wiki](https://refurboard.com) for roadmap milestones and long-form documentation.
 
-Visit our [Azure-hosted homepage and Wiki](https://refurboard.com) for more details, installation instructions, and support.
+## Current Capabilities
 
-## Features
+- **Avalonia Desktop Shell** with a bootstrap dashboard surfacing config validity, locale, and calibration needs.
+- **Schema-Backed Configuration** stored in `%APPDATA%/Refurboard` (Windows), `~/Library/Application Support/Refurboard` (macOS), or `~/.config/Refurboard` (Linux).
+- **CI Pipelines** for .NET restore/build/test plus locale-specific SKU artifacts.
+- **MkDocs Wiki** (in `refurboard-wiki/`) deployed via Azure Static Web Apps.
 
-- **Interactive Whiteboard**: Transform any old smartphone into an interactive whiteboard that tracks LED pen movements and controls the mouse cursor.
-- **Cross-Platform**: Refurboard works across multiple platforms, including Android, iOS, Windows, and more.
-- **Computer Vision**: Utilizes the camera of your smartphone or tablet to track LED pens in real-time, enabling accurate cursor control.
-- **Affordable Setup**: Use inexpensive LED pens from discount stores and your old smartphone, providing an interactive whiteboard solution at a fraction of the cost of traditional smartboards.
-- **Azure-Hosted**: Access comprehensive setup instructions, troubleshooting, and additional resources on our [homepage and Wiki](https://refurboard.com).
+Upcoming milestones will add camera enumeration, FoV overlays, IR calibration workflows, automation plug-ins, and localization-aware UX.
 
-## Setup Instructions
+## Getting Started
 
-### Setting up Poetry
-To set up Refurboard, you need to install Poetry, a Python dependency manager.
+### Prerequisites
 
-1. Install Poetry by following the instructions at [Poetry's official website](https://python-poetry.org/docs/#installation).
-2. Clone the repository and navigate to the project directory:
-    ```sh
-    cd /Refurboard
-    ```
-3. Install the project dependencies:
-    ```sh
-    poetry install
-    ```
+- .NET SDK 8.0 or later (`dotnet --list-sdks` to confirm)
+- Desktop OS supported by Avalonia (Windows, macOS, or Linux)
 
-### Running Tests
-Refurboard includes a comprehensive test suite to ensure code quality and reliability:
+### Clone & Restore
 
-1. Run all tests:
-    ```sh
-    poetry run pytest
-    ```
-
-2. Run tests with coverage report:
-    ```sh
-    poetry run pytest --cov=refurboard
-    ```
-
-3. Run specific test modules:
-    ```sh
-    poetry run pytest tests/test_led_detector.py  # Test computer vision
-    poetry run pytest tests/test_network.py      # Test networking utilities
-    poetry run pytest tests/test_mouse_control.py # Test mouse control
-    ```
-
-### Starting the Client
-Once you've set up Poetry and installed the necessary dependencies, you can start the client.
-
-1. Start the Poetry shell:
-    ```sh
-    poetry shell
-    ```
-2. Run the client:
-    ```sh
-    python main.py
-    ```
-
-### Scanning the QR Code
-To connect your smartphone or tablet to the Refurboard system, follow these steps:
-
-1. Open your camera or QR code scanning app on your mobile device.
-2. Scan the QR code displayed on your screen to connect your phone to the system.
-
-### Accepting the Self-Signed Certificate
-When you scan the QR code, you may be prompted to accept a self-signed certificate. This is necessary for establishing a secure connection. Click "Advanced" or "Continue" when you see the warning and proceed to the next steps.
-
-### Using Refurboard with Your Projector
-
-1. **Position Your Phone**: Point your old smartphone or tablet at the projector screen where you will be displaying content. The camera on your phone will track the LED pen movements on the screen.
-   
-2. **Start Calibration**: Open Refurboard on your device, then begin the calibration process. The app will prompt you to draw or move the LED pen around the boundaries of the screen. This helps the app recognize the edges of your projected display and adjust accordingly.
-   
-3. **Track the LED Pen**: Once the calibration is complete, the app will track the LED pen's movements on the screen using computer vision algorithms. The pen will act as a pointer, controlling the mouse cursor on your connected computer, enabling you to interact with the content displayed on the projector.
-
-## Architecture
-
-```
-refurboard/
-├── __init__.py          # Package initialization
-├── server/              # Flask server and SSL utilities
-│   ├── flask_app.py     # RefurboardServer class with organized routes
-│   └── ssl_utils.py     # SSL certificate generation
-├── vision/              # Computer vision processing
-│   └── led_detector.py  # LEDDetector class
-├── utils/               # Utility modules
-│   ├── network.py       # IP detection and QR code generation
-│   └── mouse_control.py # Cross-platform mouse control with pynput
-└── ui/                  # User interface components (future expansion)
+```bash
+git clone https://github.com/kevinl95/Refurboard.git
+cd Refurboard
+dotnet restore Refurboard.sln
 ```
 
-### Key Components
-- **LEDDetector**: Computer vision with contour analysis, brightness filtering, and circularity detection
-- **RefurboardServer**: Flask server with route management and LED detector integration
-- **Network Utilities**: IP detection and QR code generation
-- **Mouse Control**: Cross-platform mouse movement using pynput
+### Build & Run
 
-## Getting Help
-If you run into any issues or need more information on setting up Refurboard, visit our [Azure-hosted homepage](https://refurboard.com). There, you'll find detailed instructions, troubleshooting tips, and an FAQ section.
+```bash
+# Build the entire solution
+dotnet build Refurboard.sln
 
-### Building Executables
-You can build Refurboard into a distributable format for easier deployment.
+# Launch the Avalonia desktop app
+dotnet run --project src/Refurboard.App/Refurboard.App.csproj
+```
 
-1. Ensure you are in the Poetry shell:
-    ```sh
-    poetry shell
-    ```
-2. Install the development dependencies:
-    ```sh
-    poetry install --with dev
-    ```
-3. Run the build script to create the executable:
-    ```sh
-    ./build_executable.sh
-    ```
+On first launch the bootstrapper writes `refurboard.config.json` into your platform app-data directory, validates it against the embedded schema, and highlights whether calibration should auto-start and which locale bundle is active.
 
-### Development and Contributing
-For developers interested in contributing to Refurboard:
+### Testing
 
-1. **Python Compatibility**: Supports Python 3.11, 3.12, and 3.13
-2. **Testing**: Always run the test suite before submitting changes:
-    ```sh
-    poetry run pytest --cov=refurboard
-    ```
-3. **Modular Design**: New features should follow the existing package structure
-4. **Cross-Platform**: Refurboard supports Windows, Linux, and macOS.
+```bash
+dotnet test Refurboard.sln --configuration Release
+```
+
+CI mirrors these commands (see `.github/workflows/test.yml`) and additionally assembles locale-specific installer archives.
+
+## Configuration Model
+
+The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and is embedded into the core library. Important sections:
+
+- `metadata`: schema/app versioning, locale, timestamp data.
+- `camera`: device identifiers, resolution, FoV, exposure, and intensity thresholds.
+- `calibration`: screen bounds, normalized corner points, calibration timestamps, and device fingerprints.
+
+`ConfigurationBootstrapper` creates or repairs the JSON file and exposes a `ConfigBootstrapResult` consumed by the Avalonia UI. Future automation features (calibration triggers, plugin hints, locale self-repair) build on this surface.
+
+## Solution Layout
+
+```
+Refurboard.sln
+├── src/
+│   ├── Refurboard.App/        # Avalonia desktop application
+│   └── Refurboard.Core/       # Config + upcoming camera/IR/business logic
+├── refurboard-wiki/           # MkDocs content for https://refurboard.com
+└── .github/workflows/         # CI for .NET + documentation deployments
+```
+
+## Contributing
+
+1. Fork the repo and branch off `main`.
+2. Run `dotnet build` and `dotnet test` before submitting PRs.
+3. Keep schema changes synchronized with installer scripts and documentation.
+4. Coordinate on issues for camera/vision, localization, and plugin contracts.
 
 ## License
-This project is licensed under the terms of the Apache-2.0 license. See the [LICENSE](LICENSE) file for details.
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.

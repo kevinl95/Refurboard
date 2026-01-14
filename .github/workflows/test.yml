@@ -56,3 +56,64 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore
+      run: dotnet restore Refurboard.sln
+
+    - name: Build
+      run: dotnet build Refurboard.sln --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test Refurboard.sln --configuration Release --no-build --verbosity normal
+
+  installer:
+    needs: dotnet
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        locale: [en-US, es-ES, de-DE]
+    env:
+      CONFIG_SCHEMA_VERSION: 1.0.0
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Publish shared binaries
+      run: dotnet publish src/Refurboard.App/Refurboard.App.csproj -c Release -o build/publish/${{ matrix.locale }} --self-contained false
+
+    - name: Assemble SKU bundle
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p build/skus/${{ matrix.locale }}/shared
+        cp -R build/publish/${{ matrix.locale }}/* build/skus/${{ matrix.locale }}/shared/
+        mkdir -p build/skus/${{ matrix.locale }}/locale
+        generated="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        cat <<EOF > build/skus/${{ matrix.locale }}/locale/manifest.json
+        {
+          "locale": "${{ matrix.locale }}",
+          "schemaVersion": "${CONFIG_SCHEMA_VERSION}",
+          "generated": "$generated"
+        }
+        EOF
+        tar -czf refurboard-${{ matrix.locale }}.tar.gz -C build/skus/${{ matrix.locale }} .
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: installer-${{ matrix.locale }}
+        path: refurboard-${{ matrix.locale }}.tar.gz

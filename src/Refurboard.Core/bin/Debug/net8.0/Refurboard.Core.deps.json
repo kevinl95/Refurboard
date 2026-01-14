@@ -1,0 +1,94 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "Refurboard.Core/1.0.0": {
+        "dependencies": {
+          "JsonSchema.Net": "6.0.0"
+        },
+        "runtime": {
+          "Refurboard.Core.dll": {}
+        }
+      },
+      "Humanizer.Core/2.14.1": {
+        "runtime": {
+          "lib/net6.0/Humanizer.dll": {
+            "assemblyVersion": "2.14.0.0",
+            "fileVersion": "2.14.1.48190"
+          }
+        }
+      },
+      "Json.More.Net/2.0.0": {
+        "runtime": {
+          "lib/net8.0/Json.More.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.0.0"
+          }
+        }
+      },
+      "JsonPointer.Net/4.0.0": {
+        "dependencies": {
+          "Humanizer.Core": "2.14.1",
+          "Json.More.Net": "2.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/JsonPointer.Net.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.0.0.0"
+          }
+        }
+      },
+      "JsonSchema.Net/6.0.0": {
+        "dependencies": {
+          "Json.More.Net": "2.0.0",
+          "JsonPointer.Net": "4.0.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/JsonSchema.Net.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Refurboard.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Humanizer.Core/2.14.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-lQKvtaTDOXnoVJ20ibTuSIOf2i0uO0MPbDhd1jm238I+U/2ZnRENj0cktKZhtchBMtCUSRQ5v4xBCUbKNmyVMw==",
+      "path": "humanizer.core/2.14.1",
+      "hashPath": "humanizer.core.2.14.1.nupkg.sha512"
+    },
+    "Json.More.Net/2.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-U9pOGTOqkxibxCZiBATbTGDc76tqt4KcuC245FU3Bzw6yWuGHp2M8/bMdy4OztmO1ckwp3VvgWQ7sO75mOEI7g==",
+      "path": "json.more.net/2.0.0",
+      "hashPath": "json.more.net.2.0.0.nupkg.sha512"
+    },
+    "JsonPointer.Net/4.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-A2DjDKIdL8b93niaFaysAE9QynQ/U15Tw/MsNfra8NQPmoJZUoj86/ElTeJifGc2U86OTgFH5UdHAhIQRM7QQQ==",
+      "path": "jsonpointer.net/4.0.0",
+      "hashPath": "jsonpointer.net.4.0.0.nupkg.sha512"
+    },
+    "JsonSchema.Net/6.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-A5Y4S7ay0v7fPGfRXOEsZD+3otjngWyZ7QWz4Fa4bzAdmZKPcZfbN3J1vn0h1WJ3rg95Yt++W7/0OzLEM0//Rw==",
+      "path": "jsonschema.net/6.0.0",
+      "hashPath": "jsonschema.net.6.0.0.nupkg.sha512"
+    }
+  }
+}

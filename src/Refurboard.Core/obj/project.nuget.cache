@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "qhEqkhgpfgE=",
+  "success": true,
+  "projectFilePath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj",
+  "expectedPackageFiles": [
+    "/home/mrmemory/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/json.more.net/2.0.0/json.more.net.2.0.0.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/jsonpointer.net/4.0.0/jsonpointer.net.4.0.0.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/jsonschema.net/6.0.0/jsonschema.net.6.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

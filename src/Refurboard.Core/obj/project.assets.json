@@ -1,0 +1,209 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "Humanizer.Core/2.14.1": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/Humanizer.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/Humanizer.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Json.More.Net/2.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Json.More.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Json.More.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "JsonPointer.Net/4.0.0": {
+        "type": "package",
+        "dependencies": {
+          "Humanizer.Core": "2.14.1",
+          "Json.More.Net": "2.0.0"
+        },
+        "compile": {
+          "lib/net8.0/JsonPointer.Net.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/JsonPointer.Net.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "JsonSchema.Net/6.0.0": {
+        "type": "package",
+        "dependencies": {
+          "Json.More.Net": "2.0.0",
+          "JsonPointer.Net": "4.0.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/JsonSchema.Net.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/JsonSchema.Net.dll": {
+            "related": ".xml"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Humanizer.Core/2.14.1": {
+      "sha512": "lQKvtaTDOXnoVJ20ibTuSIOf2i0uO0MPbDhd1jm238I+U/2ZnRENj0cktKZhtchBMtCUSRQ5v4xBCUbKNmyVMw==",
+      "type": "package",
+      "path": "humanizer.core/2.14.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "humanizer.core.2.14.1.nupkg.sha512",
+        "humanizer.core.nuspec",
+        "lib/net6.0/Humanizer.dll",
+        "lib/net6.0/Humanizer.xml",
+        "lib/netstandard1.0/Humanizer.dll",
+        "lib/netstandard1.0/Humanizer.xml",
+        "lib/netstandard2.0/Humanizer.dll",
+        "lib/netstandard2.0/Humanizer.xml",
+        "logo.png"
+      ]
+    },
+    "Json.More.Net/2.0.0": {
+      "sha512": "U9pOGTOqkxibxCZiBATbTGDc76tqt4KcuC245FU3Bzw6yWuGHp2M8/bMdy4OztmO1ckwp3VvgWQ7sO75mOEI7g==",
+      "type": "package",
+      "path": "json.more.net/2.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "json-logo-256.png",
+        "json.more.net.2.0.0.nupkg.sha512",
+        "json.more.net.nuspec",
+        "lib/net8.0/Json.More.dll",
+        "lib/net8.0/Json.More.xml",
+        "lib/netstandard2.0/Json.More.dll",
+        "lib/netstandard2.0/Json.More.xml"
+      ]
+    },
+    "JsonPointer.Net/4.0.0": {
+      "sha512": "A2DjDKIdL8b93niaFaysAE9QynQ/U15Tw/MsNfra8NQPmoJZUoj86/ElTeJifGc2U86OTgFH5UdHAhIQRM7QQQ==",
+      "type": "package",
+      "path": "jsonpointer.net/4.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "json-logo-256.png",
+        "jsonpointer.net.4.0.0.nupkg.sha512",
+        "jsonpointer.net.nuspec",
+        "lib/net8.0/JsonPointer.Net.dll",
+        "lib/net8.0/JsonPointer.Net.xml",
+        "lib/netstandard2.0/JsonPointer.Net.dll",
+        "lib/netstandard2.0/JsonPointer.Net.xml"
+      ]
+    },
+    "JsonSchema.Net/6.0.0": {
+      "sha512": "A5Y4S7ay0v7fPGfRXOEsZD+3otjngWyZ7QWz4Fa4bzAdmZKPcZfbN3J1vn0h1WJ3rg95Yt++W7/0OzLEM0//Rw==",
+      "type": "package",
+      "path": "jsonschema.net/6.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "json-logo-256.png",
+        "jsonschema.net.6.0.0.nupkg.sha512",
+        "jsonschema.net.nuspec",
+        "lib/netstandard2.0/JsonSchema.Net.dll",
+        "lib/netstandard2.0/JsonSchema.Net.xml"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "JsonSchema.Net >= 6.0.0"
+    ]
+  },
+  "packageFolders": {
+    "/home/mrmemory/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj",
+      "projectName": "Refurboard.Core",
+      "projectPath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/Refurboard.Core.csproj",
+      "packagesPath": "/home/mrmemory/.nuget/packages/",
+      "outputPath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.Core/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/home/mrmemory/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "/usr/lib64/dotnet/library-packs": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.100"
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "dependencies": {
+          "JsonSchema.Net": {
+            "target": "Package",
+            "version": "[6.0.0, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/usr/lib64/dotnet/sdk/9.0.112/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
