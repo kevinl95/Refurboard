@@ -95,6 +95,7 @@ The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and i
 - `IrPointerPipeline` selects the strongest blob each frame, projects it through the current `HomographyMapping`, and optionally clamps the position to the calibrated surface.
 - A pluggable `IPointerDriver` abstraction currently ships with a Windows driver (using `SetCursorPos`) and a no-op fallback for other platforms, so downstream automation can hook real pointer motion without touching UI code.
 - `MainWindowViewModel.ProcessIrBlobsAsync` is the hand-off point for the OpenCV detection loop—callers feed blob lists per frame, and the view model surfaces projection status plus the most recent pointer sample for diagnostics.
+- `CameraPreviewViewModel` relays each camera frame to the `IrBlobDetector`, which samples BGRA buffers using the configured thresholds and immediately routes the detected blobs into `ProcessIrBlobsAsync`, keeping the pointer simulation in lockstep with the live feed.
 
 ## Solution Layout
 

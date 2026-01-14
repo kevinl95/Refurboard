@@ -27,6 +27,8 @@ public sealed class CameraPreviewViewModel : ViewModelBase, IAsyncDisposable
         _profile = profile ?? new CameraProfile();
     }
 
+    public event EventHandler<CameraFrameArrivedEventArgs>? FrameSampled;
+
     public Bitmap? Frame => _frame;
 
     public string StatusText
@@ -124,6 +126,7 @@ public sealed class CameraPreviewViewModel : ViewModelBase, IAsyncDisposable
 
     private void OnFrameArrived(object? sender, CameraFrameArrivedEventArgs e)
     {
+        FrameSampled?.Invoke(this, e);
         try
         {
             var bitmap = CreateBitmap(e.Frame);

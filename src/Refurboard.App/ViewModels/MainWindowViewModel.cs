@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Refurboard.App.Calibration;
+using Refurboard.Core.Camera;
 using Refurboard.Core.Configuration;
 using Refurboard.Core.Configuration.Models;
 using Refurboard.Core.Vision.IrTracking;
@@ -24,6 +25,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private IrPointerPipeline? _pointerPipeline;
     private string _pointerStatus = "Pointer pipeline idle.";
     private ProjectedPointerSample? _lastPointerSample;
+    private readonly IrBlobDetector _blobDetector = new();
+    private readonly CancellationTokenSource _trackingCts = new();
+    private int _frameProcessingGate;
 
     public MainWindowViewModel(ConfigBootstrapResult result)
     {
@@ -42,6 +46,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             : result.Validation.RepairPlan.Message;
 
         CameraPreview = new CameraPreviewViewModel(_config.Camera);
+        CameraPreview.FrameSampled += OnCameraFrameSampled;
         RefreshHomographyMapping();
     }
 
@@ -111,7 +116,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        CameraPreview.FrameSampled -= OnCameraFrameSampled;
         DetachPointerPipeline();
+        _trackingCts.Cancel();
+        _trackingCts.Dispose();
         await CameraPreview.DisposeAsync().ConfigureAwait(false);
     }
 
@@ -262,5 +270,37 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
 
         _pointerPipeline = null;
+    }
+
+    private void OnCameraFrameSampled(object? sender, CameraFrameArrivedEventArgs e)
+    {
+        if (Interlocked.CompareExchange(ref _frameProcessingGate, 1, 0) == 1)
+        {
+            return;
+        }
+
+        var thresholds = _config.Camera?.Thresholds ?? new ThresholdProfile();
+        var token = _trackingCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var blobs = _blobDetector.Detect(e.Frame, thresholds);
+                await ProcessIrBlobsAsync(blobs, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Swallow expected cancellations during shutdown.
+            }
+            catch (Exception ex)
+            {
+                PointerStatus = $"IR detection error: {ex.Message}";
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _frameProcessingGate, 0);
+            }
+        }, token);
     }
 }
