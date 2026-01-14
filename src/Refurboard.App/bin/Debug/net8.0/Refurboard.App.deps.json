@@ -375,6 +375,51 @@
           }
         }
       },
+      "OpenCvSharp4/4.10.0.20241107": {
+        "dependencies": {
+          "System.Memory": "4.5.5",
+          "System.Runtime.CompilerServices.Unsafe": "6.0.0"
+        },
+        "runtime": {
+          "lib/net6.0/OpenCvSharp.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "OpenCvSharp4.runtime.linux-x64/4.10.0.20240717": {
+        "runtimeTargets": {
+          "runtimes/linux-x64/native/libOpenCvSharpExtern.so": {
+            "rid": "linux-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "OpenCvSharp4.runtime.win/4.10.0.20241107": {
+        "runtimeTargets": {
+          "runtimes/win-x64/native/OpenCvSharpExtern.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/opencv_videoio_ffmpeg4100_64.dll": {
+            "rid": "win-x64",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/OpenCvSharpExtern.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x86/native/opencv_videoio_ffmpeg4100.dll": {
+            "rid": "win-x86",
+            "assetType": "native",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
       "SkiaSharp/2.88.8": {
         "dependencies": {
           "SkiaSharp.NativeAssets.Win32": "2.88.8",
@@ -451,7 +496,9 @@
           }
         }
       },
+      "System.Memory/4.5.5": {},
       "System.Numerics.Vectors/4.5.0": {},
+      "System.Runtime.CompilerServices.Unsafe/6.0.0": {},
       "Tmds.DBus.Protocol/0.16.0": {
         "dependencies": {
           "System.IO.Pipelines": "6.0.0"
@@ -465,7 +512,10 @@
       },
       "Refurboard.Core/1.0.0": {
         "dependencies": {
-          "JsonSchema.Net": "6.0.0"
+          "JsonSchema.Net": "6.0.0",
+          "OpenCvSharp4": "4.10.0.20241107",
+          "OpenCvSharp4.runtime.linux-x64": "4.10.0.20240717",
+          "OpenCvSharp4.runtime.win": "4.10.0.20241107"
         },
         "runtime": {
           "Refurboard.Core.dll": {
@@ -664,6 +714,27 @@
       "path": "microcom.runtime/0.11.0",
       "hashPath": "microcom.runtime.0.11.0.nupkg.sha512"
     },
+    "OpenCvSharp4/4.10.0.20241107": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-FJcU9AohcZ9jSjrw++1+XzbjPEAbzZa7e2FNDQ7VfPU9IGTKMiAIOMSyiDj4IsnxzlObhk5TuIMzab2PLtvYhA==",
+      "path": "opencvsharp4/4.10.0.20241107",
+      "hashPath": "opencvsharp4.4.10.0.20241107.nupkg.sha512"
+    },
+    "OpenCvSharp4.runtime.linux-x64/4.10.0.20240717": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-IHdZSzfJtAdI9cl7IFKrwaxRpYSEVJtSukaBW/NVmMZPHV2Dznudkkip1yVrJFbWgnt6L1GHTLpgokWOixLRNg==",
+      "path": "opencvsharp4.runtime.linux-x64/4.10.0.20240717",
+      "hashPath": "opencvsharp4.runtime.linux-x64.4.10.0.20240717.nupkg.sha512"
+    },
+    "OpenCvSharp4.runtime.win/4.10.0.20241107": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mIZLE3J03MKuMQxqEE6Q/0s2HotnvDn4KbcvflR94EYdJwEg9zUOQYPz0MH0eYitHIzw90a9zfmk7mgMDBRhHA==",
+      "path": "opencvsharp4.runtime.win/4.10.0.20241107",
+      "hashPath": "opencvsharp4.runtime.win.4.10.0.20241107.nupkg.sha512"
+    },
     "SkiaSharp/2.88.8": {
       "type": "package",
       "serviceable": true,
@@ -706,12 +777,26 @@
       "path": "system.io.pipelines/6.0.0",
       "hashPath": "system.io.pipelines.6.0.0.nupkg.sha512"
     },
+    "System.Memory/4.5.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XIWiDvKPXaTveaB7HVganDlOCRoj03l+jrwNvcge/t8vhGYKvqV+dMv6G4SAX2NoNmN0wZfVPTAlFwZcZvVOUw==",
+      "path": "system.memory/4.5.5",
+      "hashPath": "system.memory.4.5.5.nupkg.sha512"
+    },
     "System.Numerics.Vectors/4.5.0": {
       "type": "package",
       "serviceable": true,
       "sha512": "sha512-QQTlPTl06J/iiDbJCiepZ4H//BVraReU4O4EoRw1U02H5TLUIT7xn3GnDp9AXPSlJUDyFs4uWjWafNX6WrAojQ==",
       "path": "system.numerics.vectors/4.5.0",
       "hashPath": "system.numerics.vectors.4.5.0.nupkg.sha512"
+    },
+    "System.Runtime.CompilerServices.Unsafe/6.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg==",
+      "path": "system.runtime.compilerservices.unsafe/6.0.0",
+      "hashPath": "system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
     },
     "Tmds.DBus.Protocol/0.16.0": {
       "type": "package",

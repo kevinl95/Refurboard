@@ -24,6 +24,7 @@ Visit the [Azure-hosted homepage and Wiki](https://refurboard.com) for roadmap m
 - **Schema-Backed Configuration** stored in `%APPDATA%/Refurboard` (Windows), `~/Library/Application Support/Refurboard` (macOS), or `~/.config/Refurboard` (Linux).
 - **CI Pipelines** for .NET restore/build/test plus locale-specific SKU artifacts.
 - **MkDocs Wiki** (in `refurboard-wiki/`) deployed via Azure Static Web Apps.
+- **OpenCvSharp Camera Pipeline** that auto-detects attached webcams, applies resolution fallbacks, and streams a live preview into the Avalonia shell.
 
 Upcoming milestones will add camera enumeration, FoV overlays, IR calibration workflows, automation plug-ins, and localization-aware UX.
 
@@ -71,6 +72,13 @@ The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and i
 - `calibration`: screen bounds, normalized corner points, calibration timestamps, and device fingerprints.
 
 `ConfigurationBootstrapper` creates or repairs the JSON file and exposes a `ConfigBootstrapResult` consumed by the Avalonia UI. Future automation features (calibration triggers, plugin hints, locale self-repair) build on this surface.
+
+## Camera Preview Pipeline
+
+- The Avalonia shell spins up an OpenCvSharp-based pipeline on launch, probing up to six devices and selecting the configured `camera.deviceId` (or auto-detecting the first responder).
+- The pipeline negotiates the requested resolution/FPS, falls back through 1280×720 → 1920×1080 → 640×480, and hot-reconnects if frames stop flowing.
+- Frames are converted to BGRA buffers in the core library and marshalled into the UI as immutable bitmaps, so plugin hooks can reuse the same source without touching Avalonia APIs.
+- The "Restart Camera" button triggers a full pipeline recycle, useful when swapping USB ports or changing OS-level permissions.
 
 ## Solution Layout
 

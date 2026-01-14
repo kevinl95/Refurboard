@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "7nM8lxbo1R8=",
+  "dgSpecHash": "U64rVniwX7I=",
   "success": true,
   "projectFilePath": "/home/mrmemory/Documents/Refurboard/src/Refurboard.App/Refurboard.App.csproj",
   "expectedPackageFiles": [
@@ -30,13 +30,18 @@
     "/home/mrmemory/.nuget/packages/jsonpointer.net/4.0.0/jsonpointer.net.4.0.0.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/jsonschema.net/6.0.0/jsonschema.net.6.0.0.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/microcom.runtime/0.11.0/microcom.runtime.0.11.0.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/opencvsharp4/4.10.0.20241107/opencvsharp4.4.10.0.20241107.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/opencvsharp4.runtime.linux-x64/4.10.0.20240717/opencvsharp4.runtime.linux-x64.4.10.0.20240717.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/opencvsharp4.runtime.win/4.10.0.20241107/opencvsharp4.runtime.win.4.10.0.20241107.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/skiasharp/2.88.8/skiasharp.2.88.8.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/skiasharp.nativeassets.linux/2.88.8/skiasharp.nativeassets.linux.2.88.8.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/skiasharp.nativeassets.macos/2.88.8/skiasharp.nativeassets.macos.2.88.8.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/skiasharp.nativeassets.webassembly/2.88.8/skiasharp.nativeassets.webassembly.2.88.8.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/skiasharp.nativeassets.win32/2.88.8/skiasharp.nativeassets.win32.2.88.8.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/system.io.pipelines/6.0.0/system.io.pipelines.6.0.0.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/system.memory/4.5.5/system.memory.4.5.5.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/system.numerics.vectors/4.5.0/system.numerics.vectors.4.5.0.nupkg.sha512",
+    "/home/mrmemory/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/tmds.dbus.protocol/0.16.0/tmds.dbus.protocol.0.16.0.nupkg.sha512",
     "/home/mrmemory/.nuget/packages/microsoft.netcore.app.host.linux-x64/8.0.22/microsoft.netcore.app.host.linux-x64.8.0.22.nupkg.sha512"
   ],

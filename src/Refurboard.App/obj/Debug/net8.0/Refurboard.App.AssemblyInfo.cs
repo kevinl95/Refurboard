@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Refurboard.App")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8c35d4a9fe7b817046311f3225e92ee426951661")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b3b57ac59a2a049423a9c3a5168f025daa7e8fea")]
 [assembly: System.Reflection.AssemblyProductAttribute("Refurboard.App")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Refurboard.App")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

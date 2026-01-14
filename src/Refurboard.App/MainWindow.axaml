@@ -17,47 +17,74 @@
     </Window.Background>
 
     <Border Background="#0b1120" CornerRadius="16" Padding="28">
-        <StackPanel Spacing="18">
-            <StackPanel>
-                <TextBlock Text="IR Refurboard Bootstrap" FontSize="26" FontWeight="SemiBold" Foreground="#f8fafc" />
-                <TextBlock Text="Version-aware configs &amp; locale bundles" FontSize="14" Foreground="#94a3b8" />
+        <Grid ColumnDefinitions="2.2*,3*">
+            <StackPanel Grid.Column="0" Spacing="18">
+                <StackPanel>
+                    <TextBlock Text="IR Refurboard Bootstrap" FontSize="26" FontWeight="SemiBold" Foreground="#f8fafc" />
+                    <TextBlock Text="Version-aware configs &amp; locale bundles" FontSize="14" Foreground="#94a3b8" />
+                </StackPanel>
+
+                <Border Background="#111827" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Status" FontSize="15" FontWeight="SemiBold" Foreground="#e2e8f0" />
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="20" FontWeight="Bold" Foreground="#fef9c3" />
+                        <TextBlock Text="{Binding DetailMessage}" TextWrapping="Wrap" Foreground="#cbd5f5" />
+                    </StackPanel>
+                </Border>
+
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                    <Border Grid.Column="0" Grid.Row="0" Background="#1f2937" CornerRadius="10" Padding="16" Margin="0,0,16,12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Config Path" FontSize="14" Foreground="#a5b4fc" />
+                            <TextBlock Text="{Binding ConfigPath}" TextWrapping="Wrap" Foreground="#f8fafc" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Grid.Row="0" Background="#1f2937" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Locale" FontSize="14" Foreground="#a5b4fc" />
+                            <TextBlock Text="{Binding Locale}" Foreground="#f8fafc" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.ColumnSpan="2" Grid.Row="1" Background="#1d4ed8" CornerRadius="10" Padding="18">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <Ellipse Width="12" Height="12" Fill="#fbbf24" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding NextSteps}" Foreground="#fdf4ff" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Background="#16a34a" IsVisible="{Binding ShouldTriggerCalibration}" CornerRadius="12" Padding="16">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="Calibration scheduled" Foreground="#ecfccb" FontWeight="SemiBold" />
+                        <TextBlock Text="We will prompt you once shared binaries + locale pack are ready." Foreground="#ecfccb" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
-            <Border Background="#111827" CornerRadius="12" Padding="20">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Status" FontSize="15" FontWeight="SemiBold" Foreground="#e2e8f0" />
-                    <TextBlock Text="{Binding StatusMessage}" FontSize="20" FontWeight="Bold" Foreground="#fef9c3" />
-                    <TextBlock Text="{Binding DetailMessage}" TextWrapping="Wrap" Foreground="#cbd5f5" />
-                </StackPanel>
-            </Border>
+            <Border Grid.Column="1" Background="#050b18" CornerRadius="14" Padding="22" Margin="28,0,0,0">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Ellipse Width="10" Height="10" Fill="#34d399" IsVisible="{Binding CameraPreview.IsStreaming}" />
+                        <TextBlock Text="Live Camera Preview" FontSize="18" FontWeight="SemiBold" Foreground="#f8fafc" />
+                    </StackPanel>
 
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-                <Border Grid.Column="0" Grid.Row="0" Background="#1f2937" CornerRadius="10" Padding="16" Margin="0,0,16,12">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Config Path" FontSize="14" Foreground="#a5b4fc" />
-                        <TextBlock Text="{Binding ConfigPath}" TextWrapping="Wrap" Foreground="#f8fafc" />
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="1" Grid.Row="0" Background="#1f2937" CornerRadius="10" Padding="16" Margin="0,0,0,12">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Locale" FontSize="14" Foreground="#a5b4fc" />
-                        <TextBlock Text="{Binding Locale}" Foreground="#f8fafc" />
-                    </StackPanel>
-                </Border>
-                <Border Grid.ColumnSpan="2" Grid.Row="1" Background="#1d4ed8" CornerRadius="10" Padding="18">
+                    <Border Background="#070f1f" CornerRadius="12" Padding="12" Height="300">
+                        <Grid>
+                            <Image Source="{Binding CameraPreview.Frame}" Stretch="Uniform" />
+                            <Border Background="#00000080" CornerRadius="8" Padding="8" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12">
+                                <TextBlock Text="{Binding CameraPreview.StatusText}" Foreground="#f8fafc" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
                     <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <Ellipse Width="12" Height="12" Fill="#fbbf24" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding NextSteps}" Foreground="#fdf4ff" TextWrapping="Wrap" />
+                        <TextBlock Text="Device:" Foreground="#a5b4fc" />
+                        <TextBlock Text="{Binding CameraPreview.DeviceName}" Foreground="#f8fafc" FontWeight="SemiBold" />
                     </StackPanel>
-                </Border>
-            </Grid>
 
-            <Border Background="#16a34a" IsVisible="{Binding ShouldTriggerCalibration}" CornerRadius="12" Padding="16">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <TextBlock Text="Calibration scheduled" Foreground="#ecfccb" FontWeight="SemiBold" />
-                    <TextBlock Text="We will prompt you once shared binaries + locale pack are ready." Foreground="#ecfccb" TextWrapping="Wrap" />
+                    <Button Content="Restart Camera" HorizontalAlignment="Left" Padding="14,8" Click="OnRestartCameraClicked" />
                 </StackPanel>
             </Border>
-        </StackPanel>
+        </Grid>
     </Border>
 </Window>
