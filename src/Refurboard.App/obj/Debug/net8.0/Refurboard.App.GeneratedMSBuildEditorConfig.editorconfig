@@ -24,5 +24,8 @@ build_property.EnableCodeStyleSeverity =
 [/home/mrmemory/Documents/Refurboard/src/Refurboard.App/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
+[/home/mrmemory/Documents/Refurboard/src/Refurboard.App/Calibration/CalibrationWindow.axaml]
+build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
+
 [/home/mrmemory/Documents/Refurboard/src/Refurboard.App/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

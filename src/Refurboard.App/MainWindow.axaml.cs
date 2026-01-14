@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Refurboard.App.Calibration;
 using Refurboard.App.ViewModels;
 using Refurboard.Core.Configuration;
 
@@ -43,6 +44,21 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel viewModel)
         {
             await SafeExecuteAsync(() => viewModel.CameraPreview.RestartAsync());
+        }
+    }
+
+    private async void OnStartCalibrationClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var calibrationWindow = new CalibrationWindow();
+        var outcome = await calibrationWindow.ShowDialog<CalibrationOutcome?>(this);
+        if (outcome is not null)
+        {
+            await SafeExecuteAsync(() => viewModel.ApplyCalibrationAsync(outcome));
         }
     }
 

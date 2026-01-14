@@ -59,6 +59,11 @@
                         <TextBlock Text="We will prompt you once shared binaries + locale pack are ready." Foreground="#ecfccb" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
+
+                <Button Content="Launch Full-Screen Calibration"
+                        HorizontalAlignment="Left"
+                        Padding="18,10"
+                        Click="OnStartCalibrationClicked" />
             </StackPanel>
 
             <Border Grid.Column="1" Background="#050b18" CornerRadius="14" Padding="22" Margin="28,0,0,0">

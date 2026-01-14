@@ -25,6 +25,7 @@ Visit the [Azure-hosted homepage and Wiki](https://refurboard.com) for roadmap m
 - **CI Pipelines** for .NET restore/build/test plus locale-specific SKU artifacts.
 - **MkDocs Wiki** (in `refurboard-wiki/`) deployed via Azure Static Web Apps.
 - **OpenCvSharp Camera Pipeline** that auto-detects attached webcams, applies resolution fallbacks, and streams a live preview into the Avalonia shell.
+- **Full-Screen Calibration Workflow** that mirrors Wiimote-style targeting so IR pens can map to true display corners.
 
 Upcoming milestones will add camera enumeration, FoV overlays, IR calibration workflows, automation plug-ins, and localization-aware UX.
 
@@ -79,6 +80,12 @@ The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and i
 - The pipeline negotiates the requested resolution/FPS, falls back through 1280×720 → 1920×1080 → 640×480, and hot-reconnects if frames stop flowing.
 - Frames are converted to BGRA buffers in the core library and marshalled into the UI as immutable bitmaps, so plugin hooks can reuse the same source without touching Avalonia APIs.
 - The "Restart Camera" button triggers a full pipeline recycle, useful when swapping USB ports or changing OS-level permissions.
+
+## Calibration Workflow
+
+- Use the **Launch Full-Screen Calibration** button to enter a borderless overlay that places targets in each corner clockwise.
+- Tap each target with the IR pen (or mouse during development). Coordinates are stored as both pixel and normalized values inside the versioned JSON config.
+- Once all four corners are captured, the config auto-saves with updated `calibration.corners` and screen bounds, prompting downstream IR detection to align correctly.
 
 ## Solution Layout
 

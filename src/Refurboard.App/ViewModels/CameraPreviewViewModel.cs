@@ -47,6 +47,8 @@ public sealed class CameraPreviewViewModel : ViewModelBase, IAsyncDisposable
         private set => SetProperty(ref _isStreaming, value);
     }
 
+    public string? ActiveDeviceFingerprint => _pipeline.ActiveDevice?.DeviceId;
+
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
