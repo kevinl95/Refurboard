@@ -87,6 +87,14 @@ The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and i
 - Tap each target with the IR pen (or mouse during development). Coordinates are stored as both pixel and normalized values inside the versioned JSON config.
 - Once all four corners are captured, the config auto-saves with updated `calibration.corners` and screen bounds, prompting downstream IR detection to align correctly.
 - The desktop shell mirrors Wiimote-era tooling by rendering the calibrated quadrilateral as a white outline on a grey mini-map, so you can sanity-check skew before running IR detection.
+- Calibration data now feeds a `HomographyMapping` builder (see `Refurboard.Core/Vision/SpatialMapping`) that computes a full 3×3 perspective transform, letting the IR pipeline convert camera pixels into real or normalized screen coordinates.
+
+## IR Pointer Simulation
+
+- Detected IR blobs (area, intensity, confidence) are described via `IrBlob` snapshots under `Refurboard.Core/Vision/IrTracking`.
+- `IrPointerPipeline` selects the strongest blob each frame, projects it through the current `HomographyMapping`, and optionally clamps the position to the calibrated surface.
+- A pluggable `IPointerDriver` abstraction currently ships with a Windows driver (using `SetCursorPos`) and a no-op fallback for other platforms, so downstream automation can hook real pointer motion without touching UI code.
+- `MainWindowViewModel.ProcessIrBlobsAsync` is the hand-off point for the OpenCV detection loop—callers feed blob lists per frame, and the view model surfaces projection status plus the most recent pointer sample for diagnostics.
 
 ## Solution Layout
 

@@ -109,6 +109,10 @@
                             <controls:CalibrationOverlayControl Height="180"
                                                                  Margin="0,8,0,0"
                                                                  CalibrationPoints="{Binding CalibratedCorners}" />
+                            <TextBlock Text="Homography status" Foreground="#94a3b8" FontSize="12" />
+                            <TextBlock Text="{Binding HomographyStatus}" Foreground="#cbd5f5" TextWrapping="Wrap" />
+                            <TextBlock Text="Pointer simulation" Foreground="#94a3b8" FontSize="12" Margin="0,12,0,0" />
+                            <TextBlock Text="{Binding PointerStatus}" Foreground="#cbd5f5" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
