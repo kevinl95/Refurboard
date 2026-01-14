@@ -16,6 +16,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private string _statusMessage = string.Empty;
     private string _detailMessage = string.Empty;
     private string _nextSteps = string.Empty;
+    private bool _showCalibrationOverlay = true;
 
     public MainWindowViewModel(ConfigBootstrapResult result)
     {
@@ -66,6 +67,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public CameraPreviewViewModel CameraPreview { get; }
 
+    public IReadOnlyList<CornerObservation> CalibratedCorners =>
+        (IReadOnlyList<CornerObservation>?)_config.Calibration?.Corners ?? Array.Empty<CornerObservation>();
+
+    public bool ShowCalibrationOverlay
+    {
+        get => _showCalibrationOverlay;
+        set => SetProperty(ref _showCalibrationOverlay, value);
+    }
+
     public Task InitializeAsync(CancellationToken cancellationToken = default)
         => CameraPreview.StartAsync(cancellationToken);
 
@@ -99,5 +109,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         StatusMessage = "Configuration ready";
         DetailMessage = $"Calibration captured for {outcome.ScreenWidth}x{outcome.ScreenHeight} at {DateTimeOffset.UtcNow:HH:mm:ss}.";
         NextSteps = "Camera + IR detection can now align to the calibrated surface.";
+        RaisePropertyChanged(nameof(CalibratedCorners));
     }
 }

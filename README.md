@@ -86,6 +86,7 @@ The schema lives at `src/Refurboard.Core/Configuration/config.schema.json` and i
 - Use the **Launch Full-Screen Calibration** button to enter a borderless overlay that places targets in each corner clockwise.
 - Tap each target with the IR pen (or mouse during development). Coordinates are stored as both pixel and normalized values inside the versioned JSON config.
 - Once all four corners are captured, the config auto-saves with updated `calibration.corners` and screen bounds, prompting downstream IR detection to align correctly.
+- The desktop shell mirrors Wiimote-era tooling by rendering the calibrated quadrilateral as a white outline on a grey mini-map, so you can sanity-check skew before running IR detection.
 
 ## Solution Layout
 
