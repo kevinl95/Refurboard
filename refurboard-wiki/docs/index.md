@@ -1,100 +1,107 @@
-# Refurboard
+# Refurboard Field Guide
 
-## Welcome
+Refurboard resurrects classroom projectors with a modern Python toolchain. Point a USB webcam—or a phone streaming video through commercial webcam apps like **Camo**, **EpocCam**, or **DroidCam**—at your display, aim an IR pen, and let OpenCV translate those light trails into mouse movement. The new stack replaces the legacy .NET client with:
 
-Refurboard is an innovative, low-cost solution that turns your old smartphone into an interactive whiteboard for classrooms, businesses, and artists. By leveraging the camera on your device and utilizing computer vision to track LED pens (such as those purchasable at discount retailers, such as FiveBelow), Refurboard enables users to interact with projected displays in real time. Teachers, in particular, can greatly benefit from this tool, as it provides an affordable way to enhance classroom interactivity without requiring expensive equipment.
+- OpenCV-based IR blob detection with adaptive brightness gating.
+- Dear PyGui control surface that is intentionally tall and narrow for lecterns and portrait displays.
+- Fullscreen OpenCV calibration viewport (no nested toolkits, no window chrome).
+- Cross-platform packaging through Poetry + PyInstaller with CI artifacts for Windows, macOS, and Linux.
 
-Client devices can be running any operating system as long as they can connect to the same network as your computer and have a camera. This means your old Android. iOS device, Windows Phone, and more can have a second life!
+![Refurboard UI column](../assets/logo.png)
 
-Refurboard's design focuses on simplicity and affordability, making it accessible to anyone. You can easily set it up by pointing your phone's camera at your projector screen, calibrating the boundaries, and using an LED pen to control the cursor. Once calibrated, the app tracks the pen's movements and moves the mouse cursor accordingly, creating an interactive whiteboard experience.
+## Hardware Checklist
 
-### Key Benefits:
-- **Impact for Teachers**: Teachers can turn any old smartphone into an interactive tool for their classroom, enabling students to interact with lessons in real-time. This helps make learning more engaging and interactive without a big investment in hardware.
-- **Low-Cost Setup**: You don't need expensive smartboards or interactive projectors. Refurboard uses affordable LED pens (available at discount stores like FiveBelow) and old smartphones, minimizing costs while still offering powerful functionality.
-- **Simple Calibration**: Setting up Refurboard is easy. Point your phone at your projector screen, run the calibration process, and the app will learn the boundaries of the screen. The LED pen then becomes a pointer, and the app will track its movement, controlling the mouse cursor on your connected computer.
-- **Cross-Platform Compatibility**: Refurboard works on a variety of devices, including Android, iOS, and Windows, so you can use it with devices you already own.
+| Item | Details |
+|------|---------|
+| **IR pen / Wii-style stylus** | Any 940 nm LED with a momentary button. Classroom packs from Wii-era whiteboard kits work perfectly. |
+| **Camera** | IR-capable USB webcam or phone-as-webcam via commercial apps. Add an external IR-pass filter (or use ready-built “night vision” cams). 720p @ 30 FPS is sufficient. |
+| **Host OS** | Linux/X11 for zero-permission pointer control via pynput (XTest). Windows/macOS builds are supported via the same UI and detection stack. |
+| **Display** | Projector, TV, or monitor. Calibration assumes a rectangular surface but compensates for keystone with a 3×3 homography. |
 
-Visit our [Azure-hosted homepage and Wiki](https://refurboard.com) for more details, installation instructions, and support.
+## Software Stack
 
-## Features
+- **Python 3.11+** managed by Poetry.
+- **OpenCV + NumPy** for capture, blob analysis, and homography math.
+- **Dear PyGui** for the main control column (420 px wide, stacked widgets).
+- **pynput** for pointer control (Linux first; future drivers plug into the same abstraction).
+- **PyInstaller** for single-file binaries.
 
-- **Interactive Whiteboard**: Transform any old smartphone into an interactive whiteboard that tracks LED pen movements and controls the mouse cursor.
-- **Cross-Platform**: Refurboard works across multiple platforms, including Android, iOS, Windows, and more.
-- **Computer Vision**: Utilizes the camera of your smartphone or tablet to track LED pens in real-time, enabling accurate cursor control.
-- **Affordable Setup**: Use inexpensive LED pens from discount stores and your old smartphone, providing an interactive whiteboard solution at a fraction of the cost of traditional smartboards.
-- **Azure-Hosted**: Access comprehensive setup instructions, troubleshooting, and additional resources on our [homepage and Wiki](https://refurboard.com).
+## Installation
 
+```bash
+# Clone repository
+git clone https://github.com/kevinl95/Refurboard.git
+cd Refurboard
 
-# Setup Instructions
+# Install dependencies
+poetry install
 
-### Download or clone the project
+# Launch the control surface
+poetry run refurboard
+```
 
-The project can be cloned (using git) or downloaded as a zip from [here](https://github.com/kevinl95/Refurboard)
+Poetry downloads all runtime dependencies (OpenCV, Dear PyGui, pynput, etc.) and exposes a console script named `refurboard`.
 
-### Installing Python
-Before setting up Refurboard, ensure you have Python installed on your system.
+## Dear PyGui Layout (Columnar UI)
 
-1. Download the latest version of Python from the [official Python website](https://www.python.org/downloads/).
-2. Follow the installation instructions for your operating system.
-3. Verify the installation by running:
-    ```sh
-    python --version
-    ```
+The app window is intentionally tall and narrow to sit beside slide decks or OBS scenes. The vertical stack contains:
 
-### Setting up Poetry
-To set up Refurboard, you need to install Poetry, a Python dependency manager.
+1. **Logo header** – uses the PNG assets in `/assets` for brand consistency.
+2. **Camera picker** – dropdown listing USB/phone webcams plus a refresh button.
+3. **Sensitivity sliders** – IR gain and click hysteresis with safe defaults (0.65 / 0.15) but adjustable live.
+4. **Calibration button** – launches the fullscreen OpenCV viewport on the active display.
+5. **Accuracy summary** – RMS reprojection error, plus the four collected corner coordinates rendered as a quadrilateral readout.
+6. **Live telemetry** – normalized pointer coordinates, IR blob intensity, and click state text.
 
-1. Install Poetry by following the instructions at [Poetry's official website](https://python-poetry.org/docs/#installation).
-2. Clone the repository and navigate to the project directory:
-    ```sh
-    cd /Refurboard
-    ```
-3. Install the project dependencies:
-    ```sh
-    poetry install
-    ```
+## Calibration Walkthrough
 
-### Starting the Client
-Once you've set up Poetry and installed the necessary dependencies, you can start the client.
+1. Position the camera (or phone-as-webcam feed) so the entire display fits in frame.
+2. Click **Start Calibration**. Refurboard opens a borderless fullscreen OpenCV window.
+3. Four circular targets appear clockwise. Hold the IR pen steady on each target; once the blob is stable for ~10 frames, the point locks automatically.
+4. After all four points, Refurboard computes a homography and reports RMS error. Re-run if the error exceeds ~8 pixels.
 
-1. Start the Poetry shell:
-    ```sh
-    poetry shell
-    ```
-2. Run the client:
-    ```sh
-    python main.py
-    ```
+Because the overlay is an OpenCV window, it works uniformly across Linux, Windows, and macOS without Dear PyGui quirks.
 
-### Scanning the QR Code
-To connect your smartphone or tablet to the Refurboard system, follow these steps:
+## Using Phones as Webcams
 
-1. Open your camera or QR code scanning app on your mobile device.
-2. Scan the QR code displayed on your screen to connect your phone to the system.
+Commercial apps expose phones as UVC devices; pick whichever your district approves:
 
-### Accepting the Self-Signed Certificate
-When you scan the QR code, you may be prompted to accept a self-signed certificate. This is necessary for establishing a secure connection. Click "Advanced" or "Continue" when you see the warning and proceed to the next steps.
+- **Reincubate Camo** (USB/Wi-Fi, iOS + Android) – crisp output and stable drivers.
+- **Elgato EpocCam** (USB/Wi-Fi, iOS + Android) – simple, widely adopted.
+- **DroidCam** (USB/Wi-Fi, Android + desktop agent) – mature and inexpensive.
 
-### Using Refurboard with Your Projector
+Tips:
 
-1. **Position Your Phone**: Point your old smartphone or tablet at the projector screen where you will be displaying content. The camera on your phone will track the LED pen movements on the screen.
-   
-2. **Start Calibration**: Open Refurboard on your device, then begin the calibration process. The app will prompt you to draw or move the LED pen around the boundaries of the screen. This helps the app recognize the edges of your projected display and adjust accordingly.
-   
-3. **Track the LED Pen**: Once the calibration is complete, the app will track the LED pen's movements on the screen. The pen will act as a pointer, controlling the mouse cursor on your connected computer, enabling you to interact with the content displayed on the projector.
+- Prefer USB tethering to avoid Wi-Fi latency.
+- Lock exposure/ISO inside the app so IR brightness stays predictable.
+- Mount the phone firmly (tripod, clamp) and disable auto-focus hunting.
 
-# Building Executables
-You can build Refurboard into a distributable format for easier deployment.
+## Configuration File
 
-1. Ensure you are in the Poetry shell:
-    ```sh
-    poetry shell
-    ```
-2. Install the development dependencies:
-    ```sh
-    poetry install --with dev
-    ```
-3. Run the build script to create the executable:
-    ```sh
-    ./build_executable.sh
-    ```
+- Stored via PlatformDirs (e.g., `~/.local/share/Refurboard/refurboard.config.json`).
+- Contains the active camera ID, detection knobs (sensitivity, hysteresis, smoothing), and the latest calibration quadrilateral (camera pixels, screen pixels, normalized coordinates).
+- Safe to edit between sessions; the UI writes whenever you tweak sliders or complete calibration.
+
+## Testing & Packaging
+
+```bash
+poetry run pytest          # run unit tests
+poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py  # build single-file binary
+```
+
+GitHub Actions now run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| **Cursor wobbles** | Increase smoothing factor (config JSON) or reduce camera gain. Ensure tripod stability. |
+| **Clicks misfire** | Raise sensitivity slider or hysteresis so weak reflections keep the click gate open. |
+| **Calibration error > 10 px** | Re-run calibration after re-aiming the camera; ensure camera sees every corner and no bright IR reflections exist. |
+| **Pointer stuck at screen edge** | Recalibrate with the camera centered; check that phone/webcam feed is not mirrored unless you explicitly set `mirror=true` in config. |
+
+## Next Steps
+
+- Extend the pointer abstraction with native macOS/Windows drivers.
+- Add FoV overlays and per-corner gain adjustments.
+- Expand wiki with printable classroom posters for IR pen care and alignment tips.
