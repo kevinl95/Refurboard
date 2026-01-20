@@ -66,7 +66,8 @@ def _build_controls(app: RefurboardApp) -> None:
         tag=CAMERA_COMBO,
         width=CONTROL_WIDTH,
         default_value=_camera_label_for(app, app.config.camera.device_id),
-        callback=lambda sender, app=app: _select_camera(app),
+        callback=_on_camera_selected,
+        user_data=app,
     )
     dpg.add_button(
         label="Refresh Cameras",
@@ -82,7 +83,8 @@ def _build_controls(app: RefurboardApp) -> None:
         min_value=0.2,
         max_value=1.5,
         default_value=app.config.detection.sensitivity,
-        callback=lambda sender, app=app: app.update_sensitivity(dpg.get_value(sender)),
+        callback=_on_sensitivity_changed,
+        user_data=app,
     )
     dpg.add_text("Click Smoothing", color=(230, 230, 230))
     dpg.add_slider_float(
@@ -91,7 +93,8 @@ def _build_controls(app: RefurboardApp) -> None:
         min_value=0.05,
         max_value=0.4,
         default_value=app.config.detection.hysteresis,
-        callback=lambda sender, app=app: app.update_hysteresis(dpg.get_value(sender)),
+        callback=_on_hysteresis_changed,
+        user_data=app,
     )
     dpg.add_spacer(height=20)
     dpg.add_button(
@@ -151,12 +154,37 @@ def _camera_label_for(app: RefurboardApp, device_id: int) -> str:
     return f"Camera {device_id}"
 
 
-def _select_camera(app: RefurboardApp) -> None:
-    label = dpg.get_value(CAMERA_COMBO)
+def _on_camera_selected(sender, app_data, user_data: RefurboardApp | None) -> None:
+    if user_data is None:
+        return
+    label = dpg.get_value(sender)
     if not label:
         return
-    device_id = int(label.split(" · ")[0])
-    app.select_camera(device_id)
+    try:
+        device_id = int(label.split(" · ")[0])
+    except (ValueError, IndexError):
+        return
+    user_data.select_camera(device_id)
+
+
+def _on_sensitivity_changed(sender, app_data, user_data: RefurboardApp | None) -> None:
+    if user_data is None:
+        return
+    try:
+        value = float(app_data)
+    except (TypeError, ValueError):
+        return
+    user_data.update_sensitivity(value)
+
+
+def _on_hysteresis_changed(sender, app_data, user_data: RefurboardApp | None) -> None:
+    if user_data is None:
+        return
+    try:
+        value = float(app_data)
+    except (TypeError, ValueError):
+        return
+    user_data.update_hysteresis(value)
 
 
 def _refresh_cameras(app: RefurboardApp) -> None:
