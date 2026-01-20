@@ -39,15 +39,18 @@ jobs:
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
+        shell: bash
 
       - name: Install project
         run: poetry install --no-interaction
+        shell: bash
 
       - name: Run tests with pytest
         env:
           CI: true
         run: |
           poetry run pytest --cov=refurboard_py --cov-report=xml --cov-report=term-missing -v
+        shell: bash
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3

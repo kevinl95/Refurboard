@@ -42,6 +42,7 @@ jobs:
 
       - name: Install dependencies
         run: poetry install --no-interaction --with dev
+        shell: bash
 
       - name: Ensure Tk support (Linux)
         if: runner.os == 'Linux'
@@ -49,6 +50,7 @@ jobs:
 
       - name: Build executable
         run: poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
