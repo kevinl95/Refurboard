@@ -40,6 +40,10 @@ class AdaptiveThreshold:
             self.state = signal >= high
         return self.state
 
+    def reset(self) -> None:
+        self.baseline = 0.0
+        self.state = False
+
 
 class IrBlobDetector:
     def __init__(self, min_area: int, max_area: int) -> None:

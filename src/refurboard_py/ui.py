@@ -28,6 +28,7 @@ CANVAS_WIDTH = CONTROL_WIDTH
 CANVAS_HEIGHT = 280
 CANVAS_MARGIN = 14
 FONT_SCALE = 2.0
+ERROR_MODAL = "refurboard_error_modal"
 
 
 def launch(app: RefurboardApp) -> None:
@@ -35,6 +36,31 @@ def launch(app: RefurboardApp) -> None:
     dpg.set_global_font_scale(FONT_SCALE)
 
     dpg.create_viewport(title="Refurboard", width=VIEWPORT_WIDTH, height=VIEWPORT_HEIGHT)
+    
+    # Create error modal (hidden by default)
+    with dpg.window(
+        tag=ERROR_MODAL,
+        label="Camera Error",
+        modal=True,
+        show=False,
+        no_resize=True,
+        width=400,
+        height=180,
+    ):
+        dpg.add_text("Unable to open camera!", color=(255, 100, 100))
+        dpg.add_spacer(height=10)
+        dpg.add_text("The selected camera could not be opened.", wrap=380)
+        dpg.add_text("Please check:", wrap=380)
+        dpg.add_text("  • Camera is connected", wrap=380)
+        dpg.add_text("  • No other app is using it", wrap=380)
+        dpg.add_text("  • Correct camera selected", wrap=380)
+        dpg.add_spacer(height=10)
+        dpg.add_button(
+            label="OK",
+            width=380,
+            callback=lambda: dpg.configure_item(ERROR_MODAL, show=False),
+        )
+    
     with dpg.window(
         tag=MAIN_WINDOW,
         label="Refurboard",
@@ -54,6 +80,11 @@ def launch(app: RefurboardApp) -> None:
     dpg.set_primary_window(MAIN_WINDOW, True)
     dpg.setup_dearpygui()
     dpg.show_viewport()
+    
+    # Show error modal if camera failed to start
+    if app.camera_failed:
+        dpg.configure_item(ERROR_MODAL, show=True)
+    
     _schedule_refresh(app)
     dpg.start_dearpygui()
     dpg.destroy_context()
@@ -118,10 +149,15 @@ def _build_controls(app: RefurboardApp) -> None:
 def _schedule_refresh(app: "RefurboardApp") -> None:
     def _tick() -> None:
         _refresh_status(app)
+    
+    # Use a recurring frame callback that schedules itself relative to current frame
+    def _recurring_tick() -> None:
+        _tick()
         if dpg.is_dearpygui_running():
-            dpg.set_frame_callback(1, _tick)
-
-    dpg.set_frame_callback(1, _tick)
+            # Schedule next tick for 1 frame from now
+            dpg.set_frame_callback(dpg.get_frame_count() + 1, _recurring_tick)
+    
+    _recurring_tick()
 
 
 def _load_logo_texture():
@@ -164,7 +200,9 @@ def _on_camera_selected(sender, app_data, user_data: RefurboardApp | None) -> No
         device_id = int(label.split(" · ")[0])
     except (ValueError, IndexError):
         return
-    user_data.select_camera(device_id)
+    success = user_data.select_camera(device_id)
+    if not success:
+        dpg.configure_item(ERROR_MODAL, show=True)
 
 
 def _on_sensitivity_changed(sender, app_data, user_data: RefurboardApp | None) -> None:
@@ -232,14 +270,21 @@ def _update_quad_canvas(app: RefurboardApp) -> None:
             parent=QUAD_CANVAS,
         )
         return
-    width, height = calibration.screen_size
-    origin_x, origin_y = getattr(calibration, "screen_origin", (0, 0))
-    if width <= 0 or height <= 0:
+    # Get camera frame dimensions to show actual captured distortion
+    all_camera_x = [p.camera_px[0] for p in calibration.points]
+    all_camera_y = [p.camera_px[1] for p in calibration.points]
+    cam_min_x, cam_max_x = min(all_camera_x), max(all_camera_x)
+    cam_min_y, cam_max_y = min(all_camera_y), max(all_camera_y)
+    cam_width = cam_max_x - cam_min_x
+    cam_height = cam_max_y - cam_min_y
+    
+    if cam_width <= 0 or cam_height <= 0:
         return
 
     def to_canvas(point: CalibrationPoint) -> tuple[float, float]:
-        normalized_x = (point.screen_px[0] - origin_x) / width
-        normalized_y = (point.screen_px[1] - origin_y) / height
+        # Map camera_px to canvas to show actual captured positions
+        normalized_x = (point.camera_px[0] - cam_min_x) / cam_width
+        normalized_y = (point.camera_px[1] - cam_min_y) / cam_height
         x = CANVAS_MARGIN + normalized_x * (CANVAS_WIDTH - 2 * CANVAS_MARGIN)
         y = CANVAS_MARGIN + normalized_y * (CANVAS_HEIGHT - 2 * CANVAS_MARGIN)
         return float(x), float(y)

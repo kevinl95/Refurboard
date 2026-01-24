@@ -49,10 +49,23 @@ class RefurboardApp:
         self._running = threading.Event()
         self._calibration_thread: threading.Thread | None = None
         self._calibration_abort = threading.Event()
+        self._calibrating = threading.Event()
+        self._pointer_resume_time = 0.0
 
         self.devices: list[CameraDescriptor] = enumerate_devices()
-        self._start_camera()
+        self.camera_failed = not self._start_camera()
         self._rebuild_homography()
+        
+        # Startup validation
+        if self.config.calibration is None:
+            print("[Refurboard] No calibration data found. Please run calibration.")
+        elif len(self.config.calibration.points) < 4:
+            print(f"[Refurboard] Incomplete calibration: {len(self.config.calibration.points)}/4 points.")
+        elif self.homography is None:
+            print("[Refurboard] Warning: Calibration exists but homography is None.")
+        else:
+            print(f"[Refurboard] Loaded calibration with {len(self.config.calibration.points)} points, RMS error: {self.config.calibration.reprojection_error:.4f}px")
+        
         self._start_tracking_loop()
 
     def _calibration_error(self) -> float | None:
@@ -60,7 +73,7 @@ class RefurboardApp:
             return self.config.calibration.reprojection_error
         return None
 
-    def _start_camera(self) -> None:
+    def _start_camera(self) -> bool:
         camera_cfg = self.config.camera
         new_stream = CameraStream(
             camera_cfg.device_id,
@@ -76,6 +89,7 @@ class RefurboardApp:
             self.camera_stream = new_stream if started else None
         if not started:
             print(f"[Refurboard] Unable to open camera {camera_cfg.device_id}. Check connections and permissions.")
+        return started
 
     def _start_tracking_loop(self) -> None:
         if self._tracking_thread:
@@ -100,6 +114,7 @@ class RefurboardApp:
         close_all_overlays()
 
     def _tracking_loop(self) -> None:
+        last_debug_time = 0.0
         while self._running.is_set():
             with self.camera_lock:
                 stream = self.camera_stream
@@ -110,6 +125,8 @@ class RefurboardApp:
             if frame is None:
                 time.sleep(0.01)
                 continue
+            now = time.monotonic()
+            pointer_blocked = self._calibrating.is_set() or now < self._pointer_resume_time
             blobs = self.detector.find_blobs(frame)
             click_active = False
             normalized: Tuple[float, float] | None = None
@@ -121,10 +138,27 @@ class RefurboardApp:
                 projected = self._project(best.center)
                 if projected:
                     normalized = self.smoother.update(projected)
-                    if self.config.calibration:
+                    has_calib = bool(self.config.calibration)
+                    is_blocked = pointer_blocked
+                    if self.config.calibration and not pointer_blocked:
+                        print(f"[Tracking] Calling move: normalized={normalized}, blocked={is_blocked}, has_calib={has_calib}")
                         self.pointer_driver.move(normalized, self.config.calibration)
-            self.pointer_driver.update_click(click_active)
+                    else:
+                        print(f"[Tracking] NOT calling move: blocked={is_blocked}, has_calib={has_calib}")
+            if pointer_blocked:
+                self.pointer_driver.update_click(False)
+            else:
+                self.pointer_driver.update_click(click_active)
             self._update_telemetry(normalized, intensity, click_active)
+            
+            # Debug telemetry every 5 seconds
+            if now - last_debug_time > 5.0:
+                has_calib = self.config.calibration is not None
+                has_homo = self.homography is not None
+                blocked_reason = "calibrating" if self._calibrating.is_set() else "cooldown" if now < self._pointer_resume_time else "none"
+                print(f"[Tracking] Blobs: {len(blobs)}, Intensity: {intensity:.1f}, Projected: {normalized}, Calibrated: {has_calib}, Homography: {has_homo}, Blocked: {blocked_reason}")
+                last_debug_time = now
+            
             time.sleep(0.01)
 
     def _update_telemetry(self, pointer: Tuple[float, float] | None, intensity: float, click: bool) -> None:
@@ -158,10 +192,12 @@ class RefurboardApp:
         self.devices = enumerate_devices()
         return self.devices
 
-    def select_camera(self, device_id: int) -> None:
+    def select_camera(self, device_id: int) -> bool:
         self.config.camera.device_id = device_id
         save_config(self.config)
-        self._start_camera()
+        success = self._start_camera()
+        self.camera_failed = not success
+        return success
 
     def update_sensitivity(self, value: float) -> None:
         self.config.detection.sensitivity = value
@@ -205,6 +241,7 @@ class RefurboardApp:
         if stream is None:
             self._calibration_thread = None
             return
+        self._calibrating.set()
         self._calibration_abort.clear()
         try:
             result = run_calibration(
@@ -217,16 +254,31 @@ class RefurboardApp:
                 self.config,
                 abort_event=self._calibration_abort,
             )
-            self.homography = cv2.getPerspectiveTransform(
-                np.array([point.camera_px for point in result.profile.points], dtype=np.float32),
-                np.array([point.screen_px for point in result.profile.points], dtype=np.float32),
-            )
+            self._after_calibration(result.profile)
         except CalibrationError:
             # User cancelled; nothing to do.
             pass
         finally:
+            self.pointer_driver.update_click(False)
+            self._pointer_resume_time = time.monotonic() + 1.5
+            self._calibrating.clear()
             self._calibration_abort.clear()
             self._calibration_thread = None
+            print(f"[Refurboard] Calibration complete. Pointer control resumes in 1.5s.")
+
+    def _after_calibration(self, profile) -> None:
+        # Config already updated/saved inside run_calibration; rebuild homography + telemetry.
+        print(f"[Refurboard] Updating calibration: {len(profile.points)} points, RMS: {profile.reprojection_error:.4f}px")
+        # Reload config from disk to ensure we have the freshest data
+        from .config import load_config
+        self.config = load_config()
+        print(f"[Refurboard] Reloaded config from disk. Calibration points: {len(self.config.calibration.points) if self.config.calibration else 0}")
+        print(f"[Refurboard] Config reprojection_error after reload: {self.config.calibration.reprojection_error if self.config.calibration else 'None'}")
+        self._rebuild_homography()
+        with self.telemetry_lock:
+            self.telemetry.calibration_error = profile.reprojection_error
+            print(f"[Refurboard] Telemetry calibration_error set to: {self.telemetry.calibration_error}")
+        print(f"[Refurboard] Homography rebuilt. Matrix shape: {self.homography.shape if self.homography is not None else 'None'}")
 
 
 def main() -> None:
