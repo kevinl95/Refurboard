@@ -24,6 +24,8 @@ pytest = "^8.0.0"
 black = "^24.1.0"
 pyinstaller = "^6.3.0"
 pytest-cov = "^4.1.0"
+mkdocs = "^1.6.0"
+mkdocs-landing = "^0.0.8"
 
 [tool.poetry.scripts]
 refurboard = "refurboard_py.app:main"

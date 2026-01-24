@@ -131,6 +131,17 @@ Long-form deployment guides live in `refurboard-wiki/`. Update those pages with:
 - Vertical layout reference art pulled from the `assets/` directory.
 - Step-by-step calibration walkthroughs plus troubleshooting for ambient IR noise.
 
+### Build/publish the wiki
+
+```bash
+# From repo root
+pip install mkdocs mkdocs-landing   # once, if not already installed
+cd refurboard-wiki
+mkdocs build                        # outputs to refurboard-wiki/site/
+```
+
+If the site is hosted elsewhere, copy/sync `refurboard-wiki/site/` to your host after building.
+
 ## Troubleshooting (quick)
 
 | Symptom | Fix |
