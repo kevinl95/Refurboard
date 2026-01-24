@@ -1,4 +1,4 @@
-# Refurboard (Python Edition)
+# Refurboard
 
 ![Refurboard logo](assets/logo.png)
 
@@ -103,7 +103,7 @@ The calibration overlay is intentionally independent of Dear PyGui. OpenCV's `cv
 
 ## Packaging & CI
 
-PyInstaller specs (invoked via Poetry) bundle the app per-OS. GitHub Actions now:
+PyInstaller specs (invoked via Poetry) bundle the app per-OS. GitHub Actions:
 
 1. Keep the existing deployment workflow intact for the website/wiki.
 2. Add matrix jobs that run `poetry run pytest` and build PyInstaller artifacts for Linux, Windows, and macOS.
