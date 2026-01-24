@@ -6,6 +6,7 @@ from multiprocessing import Pipe, Process
 from multiprocessing.connection import Connection
 from threading import Event, Lock
 from typing import List, Sequence, Tuple
+import os
 import time
 
 import cv2
@@ -44,6 +45,8 @@ class ScreenBounds:
     width: int
     height: int
     origin: Tuple[int, int]
+    monitor_name: str | None = None
+    monitor_index: int | None = None
 
 
 class CalibrationOverlay:
@@ -266,19 +269,76 @@ def _screen_bounds() -> ScreenBounds:
         monitors = get_monitors()
     except Exception:
         monitors = []
-    chosen = monitors[0] if monitors else None
-    for monitor in monitors:
-        if monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
-            chosen = monitor
-            break
+    chosen = None
+    chosen_index: int | None = None
+
+    preferred_name = os.getenv("REFURBOARD_MONITOR_NAME")
+    if preferred_name:
+        for idx, monitor in enumerate(monitors):
+            name = str(getattr(monitor, "name", ""))
+            if preferred_name.lower() in name.lower():
+                chosen = monitor
+                chosen_index = idx
+                break
+
+    if chosen is None:
+        preferred_index = os.getenv("REFURBOARD_MONITOR_INDEX")
+        if preferred_index is not None:
+            try:
+                idx = int(preferred_index)
+                if 0 <= idx < len(monitors):
+                    chosen = monitors[idx]
+                    chosen_index = idx
+            except ValueError:
+                pass
+
+    def _is_internal(mon) -> bool:
+        name = str(getattr(mon, "name", "")).lower()
+        return any(tag in name for tag in ("edp", "lvds", "dsi"))
+
+    external = [m for m in monitors if not _is_internal(m)]
+
+    if chosen is None and external:
+        for idx, monitor in enumerate(monitors):
+            if monitor in external and monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
+                chosen = monitor
+                chosen_index = idx
+                break
+
+    if chosen is None and external:
+        biggest_ext = max(external, key=lambda m: m.width * m.height)
+        chosen = biggest_ext
+        chosen_index = monitors.index(biggest_ext)
+
+    if chosen is None:
+        for idx, monitor in enumerate(monitors):
+            if monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
+                chosen = monitor
+                chosen_index = idx
+                break
+
+    if chosen is None and monitors:
+        chosen = max(monitors, key=lambda m: m.width * m.height)
+        chosen_index = monitors.index(chosen)
+
     if chosen is None:
         root = tk.Tk()
         root.withdraw()
         width = root.winfo_screenwidth()
         height = root.winfo_screenheight()
         root.destroy()
+        print("[Calibration] screeninfo unavailable; falling back to primary display")
         return ScreenBounds(width=width, height=height, origin=(0, 0))
-    return ScreenBounds(width=chosen.width, height=chosen.height, origin=(chosen.x, chosen.y))
+
+    monitor_name = getattr(chosen, "name", "unknown") or "unknown"
+    print(f"[Calibration] Using monitor '{monitor_name}' at origin {(chosen.x, chosen.y)}, size {chosen.width}x{chosen.height}")
+    return ScreenBounds(
+        width=chosen.width,
+        height=chosen.height,
+        origin=(chosen.x, chosen.y),
+        monitor_name=monitor_name,
+        monitor_index=chosen_index,
+    )
 
 
 def run_calibration(
@@ -353,6 +413,8 @@ def run_calibration(
     profile = CalibrationProfile(
         screen_size=(bounds.width, bounds.height),
         screen_origin=bounds.origin,
+        monitor_name=bounds.monitor_name,
+        monitor_index=bounds.monitor_index,
         reprojection_error=reprojection_error,
         points=calibration_points,
     )

@@ -24,6 +24,8 @@ class CalibrationPoint:
 class CalibrationProfile:
     screen_size: Tuple[int, int]
     screen_origin: Tuple[int, int] = (0, 0)
+    monitor_name: str | None = None
+    monitor_index: int | None = None
     completed_at: float | None = None
     reprojection_error: float | None = None
     points: List[CalibrationPoint] = field(default_factory=list)
@@ -49,6 +51,7 @@ class DetectionSettings:
     click_hold_ms: int = 120
     min_blob_area: int = 5
     max_blob_area: int = 500
+    min_move_px: int = 5
 
 
 @dataclass
@@ -100,6 +103,8 @@ def load_config() -> AppConfig:
         calibration = CalibrationProfile(
             screen_size=tuple(calibration_payload["screen_size"]),
             screen_origin=tuple(calibration_payload.get("screen_origin", (0, 0))),
+            monitor_name=calibration_payload.get("monitor_name"),
+            monitor_index=calibration_payload.get("monitor_index"),
             completed_at=calibration_payload.get("completed_at"),
             reprojection_error=calibration_payload.get("reprojection_error"),
             points=points,
@@ -117,6 +122,8 @@ def save_config(config: AppConfig) -> None:
         payload["calibration"] = {
             "screen_size": list(config.calibration.screen_size),
             "screen_origin": list(config.calibration.screen_origin),
+            "monitor_name": config.calibration.monitor_name,
+            "monitor_index": config.calibration.monitor_index,
             "completed_at": config.calibration.completed_at or time.time(),
             "reprojection_error": config.calibration.reprojection_error,
             "points": [

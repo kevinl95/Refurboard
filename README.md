@@ -7,7 +7,7 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 - **OpenCV IR blob tracking** tuned for off-the-shelf IR pens.
 - **Adaptive intensity gating** so clicks only trigger when the IR beam clearly pierces ambient light.
 - **Dear PyGui vertical control column**: a narrow, tall window with stacked widgets for camera selection, sensitivity sliders, calibration metrics, and status readouts.
-- **Fullscreen calibration overlay** powered by a simple OpenCV window—no overlapping GUI layers, no permission prompts.
+- **Fullscreen calibration overlay** powered by a simple OpenCV window—no overlapping GUI layers, no permission prompts. The overlay runs on the monitor chosen at calibration time and stores that monitor’s origin/size for future sessions.
 - **Cross-platform packaging** via PyInstaller (artifacts produced in CI for Linux, Windows, and macOS).
 
 ## Hardware & Setup
@@ -16,7 +16,7 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 |-----------|-------|
 | **USB Webcam** | 720p+ sensor preferred. Add an IR-pass filter in front of the lens (or pick a ready-made IR-sensitive model). Phone webcams are supported via commercial apps that expose the feed over USB/Wi-Fi as a UVC device. |
 | **IR Pens/Remotes** | Any 940 nm LED stylus works. Classroom deployments often repurpose Wii sensor-bar pens or build DIY LED pens. |
-| **Host PC** | Linux (X11) is the primary target today; Windows and macOS builds are supported through the same Python codepath. |
+| **Host PC** | Linux: Wayland requires ydotoold + uinput access (see Linux pointer setup). X11 works via pynput/XTest with no extra steps. Windows and macOS builds share the same Python stack; native drivers are TBD. |
 | **Projection Surface** | TV, projector, or large monitor. The calibration overlay assumes a rectangular display but tolerates keystone adjustments via homography. |
 
 ## Stack Overview
@@ -25,7 +25,7 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 - **OpenCV** for camera capture, IR processing, and fullscreen calibration overlays.
 - **NumPy** for homography math and smoothing.
 - **Dear PyGui** for the slim, vertical control surface. Widgets follow a single-column layout to fit podium touchscreens or narrow monitors.
-- **pynput (XTest)** for zero-permission cursor control on X11 desktops; Windows/macOS drivers will follow the same abstraction.
+- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput access); pynput/XTest on X11. Windows/macOS drivers will follow the same abstraction.
 
 ## Quick Start
 
@@ -56,12 +56,48 @@ The Dear PyGui window is intentionally tall and narrow (≈420px wide). From top
 3. A fullscreen OpenCV window appears on the active display. Tap each illuminated target clockwise. The detector samples the IR blob and advances once it is stable for ~10 frames.
 4. The resulting four camera⇄screen pairs feed a homography with reprojection error shown back in the UI. Rerun if the error exceeds ~8 px.
 
-The calibration overlay is intentionally independent of Dear PyGui. OpenCV's `cv2.namedWindow` + `cv2.setWindowProperty(..., cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)` approach works across Linux, macOS, and Windows without extra permissions.
+The calibration overlay is intentionally independent of Dear PyGui. OpenCV's `cv2.namedWindow` + `cv2.setWindowProperty(..., cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)` approach works across Linux, macOS, and Windows without extra permissions. The monitor that shows the overlay is remembered (name/index, origin, size) and is the only monitor Refurboard moves the cursor on.
+
+### Linux pointer control (Wayland/X11)
+
+- X11: works out of the box via pynput/XTest.
+- Wayland: install `ydotool` and ensure uinput access for your user:
+  1) `sudo usermod -aG input $USER` then log out/in.
+  2) Create udev rule:
+	  ```
+	  sudo tee /etc/udev/rules.d/70-uinput.rules >/dev/null <<'EOF'
+	  KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
+	  EOF
+	  sudo udevadm control --reload-rules
+	  sudo udevadm trigger --subsystem-match=misc --attr-match=name=uinput
+	  sudo modprobe uinput
+	  ```
+  3) Run ydotoold as a user service:
+	  ```
+	  mkdir -p ~/.config/systemd/user
+	  cat > ~/.config/systemd/user/ydotool.service <<'EOF'
+	  [Unit]
+	  Description=ydotoold (user)
+	  After=graphical-session.target
+
+	  [Service]
+	  Type=simple
+	  Environment=XDG_RUNTIME_DIR=/run/user/%U
+	  ExecStart=/usr/bin/ydotoold --socket-path /run/user/%U/.ydotool_socket
+	  Restart=on-failure
+
+	  [Install]
+	  WantedBy=default.target
+	  EOF
+	  systemctl --user daemon-reload
+	  systemctl --user enable --now ydotool.service
+	  ```
+  Verify `/run/user/$(id -u)/.ydotool_socket` exists. Refurboard will drive the cursor through this socket on Wayland.
 
 ## Configuration
 
 - Stored at `${XDG_DATA_HOME:-~/.local/share}/Refurboard/refurboard.config.json` (PlatformDirs takes care of Windows/macOS equivalents).
-- Contains camera settings, detection knobs, and the most recent calibration quadrilateral.
+- Contains camera settings, detection knobs (including jitter deadzone `min_move_px`), and the most recent calibration quadrilateral plus monitor name/index and origin.
 - You can safely edit the JSON when Refurboard is closed; the UI writes back whenever you adjust sensitivity or finish calibration.
 
 ## Packaging & CI
@@ -94,6 +130,16 @@ Long-form deployment guides live in `refurboard-wiki/`. Update those pages with:
 - Phone-to-webcam recommendations (commercial apps, USB vs Wi-Fi latency tips).
 - Vertical layout reference art pulled from the `assets/` directory.
 - Step-by-step calibration walkthroughs plus troubleshooting for ambient IR noise.
+
+## Troubleshooting (quick)
+
+| Symptom | Fix |
+|---------|-----|
+| Cursor wobbles | Increase smoothing factor or `min_move_px` in config; reduce camera gain; secure the camera mount. |
+| Clicks misfire | Raise sensitivity or hysteresis so weak reflections do not latch clicks. |
+| Calibration error > 10 px | Re-run calibration after re-aiming the camera; ensure all corners are visible and IR reflections are minimized. |
+| Pointer on wrong monitor | Re-run calibration on the intended display; the app remembers that monitor. |
+| Wayland: cursor does not move | Ensure `ydotoold` user service is running and `/run/user/$(id -u)/.ydotool_socket` exists; add user to `input`, apply the udev rule for `/dev/uinput`, and reload `uinput`. |
 
 ## License
 

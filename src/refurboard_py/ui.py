@@ -1,6 +1,7 @@
 """Dear PyGui front-end for the Refurboard controller."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, TYPE_CHECKING
 
 import numpy as np
@@ -36,6 +37,12 @@ def launch(app: RefurboardApp) -> None:
     dpg.set_global_font_scale(FONT_SCALE)
 
     dpg.create_viewport(title="Refurboard", width=VIEWPORT_WIDTH, height=VIEWPORT_HEIGHT)
+    
+    # Set window icon
+    logo_path = Path(__file__).parent.parent.parent / "assets" / "logo.ico"
+    if logo_path.exists():
+        dpg.set_viewport_small_icon(str(logo_path))
+        dpg.set_viewport_large_icon(str(logo_path))
     
     # Create error modal (hidden by default)
     with dpg.window(

@@ -19,9 +19,10 @@ class PointerSample:
 
 
 class PointerDriver:
-    def __init__(self, click_hold_ms: int) -> None:
+    def __init__(self, click_hold_ms: int, min_move_px: int = 5) -> None:
         self.controller = Controller()
         self.click_hold_ms = click_hold_ms
+        self.min_move_px = min_move_px
         self._click_active = False
         self._click_started = 0.0
         self._use_ydotool = platform.system() == "Linux"
@@ -30,8 +31,19 @@ class PointerDriver:
     def _move_cursor_ydotool(self, x: int, y: int) -> None:
         """Move cursor using ydotool (Wayland-compatible on Linux)."""
         try:
-            subprocess.run(['ydotool', 'mousemove', '--absolute', '-x', str(x), '-y', str(y)], 
-                         check=False, capture_output=True, timeout=0.1)
+            result = subprocess.run(
+                ['ydotool', 'mousemove', '--absolute', '-x', str(x), '-y', str(y)],
+                check=False,
+                capture_output=True,
+                timeout=0.1,
+            )
+
+            if result.returncode != 0:
+                stderr = result.stderr.decode('utf-8', errors='ignore').strip()
+                stdout = result.stdout.decode('utf-8', errors='ignore').strip()
+                print(f"[Pointer] ydotool returned {result.returncode}. stdout='{stdout}' stderr='{stderr}'. Falling back to pynput")
+                self.controller.position = (x, y)
+                return
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
             print(f"[Pointer] ydotool failed: {e}, falling back to pynput")
             self.controller.position = (x, y)
@@ -47,8 +59,8 @@ class PointerDriver:
         
         print(f"[Pointer] Target: ({x}, {y}), Last: {self._last_target}, Delta: {delta_to_target}")
         
-        # Only move if we're more than 5 pixels away from last target
-        if delta_to_target[0] > 5 or delta_to_target[1] > 5:
+        # Only move if we're beyond the jitter threshold
+        if delta_to_target[0] > self.min_move_px or delta_to_target[1] > self.min_move_px:
             if self._use_ydotool:
                 self._move_cursor_ydotool(x, y)
                 print(f"[Pointer] Moved cursor to ({x}, {y}) via ydotool")

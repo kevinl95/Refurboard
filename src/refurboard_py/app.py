@@ -37,7 +37,10 @@ class RefurboardApp:
             hysteresis=self.config.detection.hysteresis,
         )
         self.smoother = Smoother(self.config.detection.smoothing)
-        self.pointer_driver = PointerDriver(self.config.detection.click_hold_ms)
+        self.pointer_driver = PointerDriver(
+            click_hold_ms=self.config.detection.click_hold_ms,
+            min_move_px=self.config.detection.min_move_px,
+        )
 
         self.camera_stream: CameraStream | None = None
         self.camera_lock = threading.Lock()
@@ -65,6 +68,8 @@ class RefurboardApp:
             print("[Refurboard] Warning: Calibration exists but homography is None.")
         else:
             print(f"[Refurboard] Loaded calibration with {len(self.config.calibration.points)} points, RMS error: {self.config.calibration.reprojection_error:.4f}px")
+            if self.config.calibration.monitor_name is not None:
+                print(f"[Refurboard] Calibration monitor: {self.config.calibration.monitor_name} (index {self.config.calibration.monitor_index})")
         
         self._start_tracking_loop()
 
