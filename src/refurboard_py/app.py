@@ -182,6 +182,32 @@ class RefurboardApp:
         origin_x, origin_y = getattr(self.config.calibration, "screen_origin", (0, 0))
         x = (projected[0][0] - origin_x) / self.config.calibration.screen_size[0]
         y = (projected[1][0] - origin_y) / self.config.calibration.screen_size[1]
+        adjusted = self._apply_field_correction(float(x), float(y))
+        return adjusted
+
+    def _apply_field_correction(self, x: float, y: float) -> Tuple[float, float]:
+        # Center-relative FoV scaling
+        cx, cy = 0.5, 0.5
+        scale = getattr(self.config.detection, "fov_scale", 1.0)
+        if scale != 1.0:
+            x = cx + (x - cx) * scale
+            y = cy + (y - cy) * scale
+
+        # Bilinear corner gain (per-corner radial stretching)
+        gains = getattr(self.config.detection, "corner_gain", {}) or {}
+        g_tl = gains.get("top_left", 1.0)
+        g_tr = gains.get("top_right", 1.0)
+        g_br = gains.get("bottom_right", 1.0)
+        g_bl = gains.get("bottom_left", 1.0)
+
+        top = g_tl + (g_tr - g_tl) * x
+        bottom = g_bl + (g_br - g_bl) * x
+        gain = top + (bottom - top) * y
+
+        if gain != 1.0:
+            x = cx + (x - cx) * gain
+            y = cy + (y - cy) * gain
+
         return (float(np.clip(x, 0.0, 1.0)), float(np.clip(y, 0.0, 1.0)))
 
     def _rebuild_homography(self) -> None:
@@ -219,6 +245,16 @@ class RefurboardApp:
             sensitivity=self.config.detection.sensitivity,
             hysteresis=self.config.detection.hysteresis,
         )
+
+    def update_fov_scale(self, value: float) -> None:
+        self.config.detection.fov_scale = value
+        save_config(self.config)
+
+    def update_corner_gain(self, corner: str, value: float) -> None:
+        if corner not in ("top_left", "top_right", "bottom_right", "bottom_left"):
+            return
+        self.config.detection.corner_gain[corner] = value
+        save_config(self.config)
 
     def get_status(self) -> Dict[str, object]:
         with self.telemetry_lock:

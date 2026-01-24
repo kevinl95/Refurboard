@@ -290,7 +290,7 @@
 </tr>
 <tr>
 <td><strong>Host OS</strong></td>
-<td>Linux: X11 works via pynput/XTest; Wayland requires ydotoold + uinput access (see Linux pointer setup). Windows/macOS builds share the same UI and detection stack.</td>
+<td>Linux: X11 works via pynput/XTest; Wayland requires ydotoold + uinput access (see Linux pointer setup). Windows uses SendInput; macOS uses Quartz CGEvent.</td>
 </tr>
 <tr>
 <td><strong>Display</strong></td>
@@ -303,7 +303,7 @@
 <li><strong>Python 3.11+</strong> managed by Poetry.</li>
 <li><strong>OpenCV + NumPy</strong> for capture, blob analysis, and homography math.</li>
 <li><strong>Dear PyGui</strong> for the main control column (420 px wide, stacked widgets).</li>
-<li><strong>Pointer drivers</strong>: ydotool on Linux/Wayland (needs uinput); pynput/XTest on X11 (no extra steps). Future native drivers plug into the same abstraction.</li>
+<li><strong>Pointer drivers</strong>: ydotool on Linux/Wayland (needs uinput); pynput/XTest on X11; SendInput on Windows; Quartz CGEvent on macOS.</li>
 <li><strong>PyInstaller</strong> for single-file binaries.</li>
 </ul>
 <h2 id="installation">Installation</h2>
@@ -324,6 +324,7 @@ poetry run refurboard
 <li><strong>Logo header</strong> – uses the PNG assets in <code>/assets</code> for brand consistency.</li>
 <li><strong>Camera picker</strong> – dropdown listing USB/phone webcams plus a refresh button.</li>
 <li><strong>Sensitivity sliders</strong> – IR gain and click hysteresis with safe defaults (0.65 / 0.15) but adjustable live.</li>
+<li><strong>FoV / corner gain</strong> – optional stretch controls to compensate for lens distortion or tight framing.</li>
 <li><strong>Calibration button</strong> – launches the fullscreen OpenCV viewport on the active display.</li>
 <li><strong>Accuracy summary</strong> – RMS reprojection error, plus the four collected corner coordinates rendered as a quadrilateral readout.</li>
 <li><strong>Live telemetry</strong> – normalized pointer coordinates, IR blob intensity, and click state text.</li>
@@ -353,7 +354,7 @@ poetry run refurboard
 <h2 id="configuration-file">Configuration File</h2>
 <ul>
 <li>Stored via PlatformDirs (e.g., <code>~/.local/share/Refurboard/refurboard.config.json</code>).</li>
-<li>Contains the active camera ID, detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone <code>min_move_px</code>), and the latest calibration quadrilateral plus monitor name/index and origin.</li>
+<li>Contains the active camera ID; detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone <code>min_move_px</code>, FoV scale, per-corner gain); and the latest calibration quadrilateral plus monitor name/index and origin.</li>
 <li>Safe to edit between sessions; the UI writes whenever you tweak sliders or complete calibration.</li>
 </ul>
 <h2 id="linux-pointer-control-waylandx11">Linux pointer control (Wayland/X11)</h2>
@@ -391,10 +392,10 @@ poetry run refurboard
 </li>
 </ul>
 <h2 id="testing-packaging">Testing &amp; Packaging</h2>
-<pre><code class="language-bash">poetry run pytest          # run unit tests
-poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py  # build single-file binary
+<pre><code class="language-bash">poetry run pytest                      # run unit tests
+poetry run pyinstaller --clean refurboard.spec  # build single-file binary (uses included spec)
 </code></pre>
-<p>GitHub Actions now run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched.</p>
+<p>GitHub Actions run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched. The spec bundles OpenCV libs, logo assets, and Quartz modules on macOS.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <table>
 <thead>
@@ -428,9 +429,8 @@ poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py  # build single
 </table>
 <h2 id="next-steps">Next Steps</h2>
 <ul>
-<li>Extend the pointer abstraction with native macOS/Windows drivers.</li>
-<li>Add FoV overlays and per-corner gain adjustments.</li>
 <li>Expand wiki with printable classroom posters for IR pen care and alignment tips.</li>
+<li>Add automated FoV overlay export for projector alignment reference.</li>
 </ul>
     <nav id="page-controls">
       <a href="#content" id="return-top">

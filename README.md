@@ -16,7 +16,7 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 |-----------|-------|
 | **USB Webcam** | 720p+ sensor preferred. Add an IR-pass filter in front of the lens (or pick a ready-made IR-sensitive model). Phone webcams are supported via commercial apps that expose the feed over USB/Wi-Fi as a UVC device. |
 | **IR Pens/Remotes** | Any 940 nm LED stylus works. Classroom deployments often repurpose Wii sensor-bar pens or build DIY LED pens. |
-| **Host PC** | Linux: Wayland requires ydotoold + uinput access (see Linux pointer setup). X11 works via pynput/XTest with no extra steps. Windows and macOS builds share the same Python stack; native drivers are TBD. |
+| **Host PC** | Linux: Wayland requires ydotoold + uinput access (see Linux pointer setup). X11 works via pynput/XTest with no extra steps. Windows uses SendInput; macOS uses Quartz (both bundled). |
 | **Projection Surface** | TV, projector, or large monitor. The calibration overlay assumes a rectangular display but tolerates keystone adjustments via homography. |
 
 ## Stack Overview
@@ -25,7 +25,7 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 - **OpenCV** for camera capture, IR processing, and fullscreen calibration overlays.
 - **NumPy** for homography math and smoothing.
 - **Dear PyGui** for the slim, vertical control surface. Widgets follow a single-column layout to fit podium touchscreens or narrow monitors.
-- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput access); pynput/XTest on X11. Windows/macOS drivers will follow the same abstraction.
+- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput access); pynput/XTest on X11; SendInput on Windows; Quartz CGEvent on macOS.
 
 ## Quick Start
 
@@ -45,9 +45,10 @@ The Dear PyGui window is intentionally tall and narrow (≈420px wide). From top
 1. **Logo header** – pulled from `assets/logo.png` for consistency with documentation and shortcuts.
 2. **Camera dropdown** – choose among detected USB/phone webcams; refresh if you plug in a new device.
 3. **Sensitivity sliders** – IR detection gain and click hysteresis, tuned with sensible defaults.
-4. **Calibration button** – opens a separate fullscreen OpenCV viewport with four corner targets offset slightly from each display edge. Hold the IR pen steady at each target until it auto-locks.
-5. **Accuracy & quadrilateral summary** – reprojection error (RMS pixels) plus the recorded screen coordinates.
-6. **Live status** – normalized pointer coordinates, IR blob intensity, and click state.
+4. **FoV / corner gain** – optional stretch controls to compensate for lens distortion or tight camera FoV.
+5. **Calibration button** – opens a separate fullscreen OpenCV viewport with four corner targets offset slightly from each display edge. Hold the IR pen steady at each target until it auto-locks.
+6. **Accuracy & quadrilateral summary** – reprojection error (RMS pixels) plus the recorded screen coordinates.
+7. **Live status** – normalized pointer coordinates, IR blob intensity, and click state.
 
 ## Calibration Flow
 
@@ -97,7 +98,7 @@ The calibration overlay is intentionally independent of Dear PyGui. OpenCV's `cv
 ## Configuration
 
 - Stored at `${XDG_DATA_HOME:-~/.local/share}/Refurboard/refurboard.config.json` (PlatformDirs takes care of Windows/macOS equivalents).
-- Contains camera settings, detection knobs (including jitter deadzone `min_move_px`), and the most recent calibration quadrilateral plus monitor name/index and origin.
+- Contains camera settings; detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone `min_move_px`, FoV scale, per-corner gain); and the most recent calibration quadrilateral plus monitor name/index and origin.
 - You can safely edit the JSON when Refurboard is closed; the UI writes back whenever you adjust sensitivity or finish calibration.
 
 ## Packaging & CI
@@ -107,13 +108,17 @@ PyInstaller specs (invoked via Poetry) bundle the app per-OS. GitHub Actions now
 1. Keep the existing deployment workflow intact for the website/wiki.
 2. Add matrix jobs that run `poetry run pytest` and build PyInstaller artifacts for Linux, Windows, and macOS.
 
-Local packaging mirrors CI:
+Local packaging mirrors CI using the included spec:
 
 ```bash
-poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py
+# ensure dev deps are present (pyinstaller + pyobjc on macOS)
+poetry install --with dev
+
+# build single-file binary
+poetry run pyinstaller --clean refurboard.spec
 ```
 
-Artifacts land in `dist/` and can be copied to classroom laptops.
+Artifacts land in `dist/` and can be copied to classroom laptops. The spec bundles OpenCV shared libs, Quartz (macOS), and logo assets.
 
 ## Testing
 

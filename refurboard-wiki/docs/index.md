@@ -15,7 +15,7 @@ Refurboard resurrects classroom projectors with a modern Python toolchain. Point
 |------|---------|
 | **IR pen / Wii-style stylus** | Any 940 nm LED with a momentary button. Classroom packs from Wii-era whiteboard kits work perfectly. |
 | **Camera** | IR-capable USB webcam or phone-as-webcam via commercial apps. Add an external IR-pass filter (or use ready-built “night vision” cams). 720p @ 30 FPS is sufficient. |
-| **Host OS** | Linux: X11 works via pynput/XTest; Wayland requires ydotoold + uinput access (see Linux pointer setup). Windows/macOS builds share the same UI and detection stack. |
+| **Host OS** | Linux: X11 works via pynput/XTest; Wayland requires ydotoold + uinput access (see Linux pointer setup). Windows uses SendInput; macOS uses Quartz CGEvent. |
 | **Display** | Projector, TV, or monitor. Calibration assumes a rectangular surface but compensates for keystone with a 3×3 homography. |
 
 ## Software Stack
@@ -23,7 +23,7 @@ Refurboard resurrects classroom projectors with a modern Python toolchain. Point
 - **Python 3.11+** managed by Poetry.
 - **OpenCV + NumPy** for capture, blob analysis, and homography math.
 - **Dear PyGui** for the main control column (420 px wide, stacked widgets).
-- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput); pynput/XTest on X11 (no extra steps). Future native drivers plug into the same abstraction.
+- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput); pynput/XTest on X11; SendInput on Windows; Quartz CGEvent on macOS.
 - **PyInstaller** for single-file binaries.
 
 ## Installation
@@ -49,9 +49,10 @@ The app window is intentionally tall and narrow to sit beside slide decks or OBS
 1. **Logo header** – uses the PNG assets in `/assets` for brand consistency.
 2. **Camera picker** – dropdown listing USB/phone webcams plus a refresh button.
 3. **Sensitivity sliders** – IR gain and click hysteresis with safe defaults (0.65 / 0.15) but adjustable live.
-4. **Calibration button** – launches the fullscreen OpenCV viewport on the active display.
-5. **Accuracy summary** – RMS reprojection error, plus the four collected corner coordinates rendered as a quadrilateral readout.
-6. **Live telemetry** – normalized pointer coordinates, IR blob intensity, and click state text.
+4. **FoV / corner gain** – optional stretch controls to compensate for lens distortion or tight framing.
+5. **Calibration button** – launches the fullscreen OpenCV viewport on the active display.
+6. **Accuracy summary** – RMS reprojection error, plus the four collected corner coordinates rendered as a quadrilateral readout.
+7. **Live telemetry** – normalized pointer coordinates, IR blob intensity, and click state text.
 
 ## Calibration Walkthrough
 
@@ -81,7 +82,7 @@ Tips:
 ## Configuration File
 
 - Stored via PlatformDirs (e.g., `~/.local/share/Refurboard/refurboard.config.json`).
-- Contains the active camera ID, detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone `min_move_px`), and the latest calibration quadrilateral plus monitor name/index and origin.
+- Contains the active camera ID; detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone `min_move_px`, FoV scale, per-corner gain); and the latest calibration quadrilateral plus monitor name/index and origin.
 - Safe to edit between sessions; the UI writes whenever you tweak sliders or complete calibration.
 
 ## Linux pointer control (Wayland/X11)
@@ -123,11 +124,11 @@ Tips:
 ## Testing & Packaging
 
 ```bash
-poetry run pytest          # run unit tests
-poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py  # build single-file binary
+poetry run pytest                      # run unit tests
+poetry run pyinstaller --clean refurboard.spec  # build single-file binary (uses included spec)
 ```
 
-GitHub Actions now run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched.
+GitHub Actions run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched. The spec bundles OpenCV libs, logo assets, and Quartz modules on macOS.
 
 ## Troubleshooting
 
@@ -141,6 +142,5 @@ GitHub Actions now run tests plus PyInstaller builds on Ubuntu, Windows, and mac
 
 ## Next Steps
 
-- Extend the pointer abstraction with native macOS/Windows drivers.
-- Add FoV overlays and per-corner gain adjustments.
 - Expand wiki with printable classroom posters for IR pen care and alignment tips.
+- Add automated FoV overlay export for projector alignment reference.

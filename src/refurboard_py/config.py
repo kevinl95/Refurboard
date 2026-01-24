@@ -52,6 +52,15 @@ class DetectionSettings:
     min_blob_area: int = 5
     max_blob_area: int = 500
     min_move_px: int = 5
+    fov_scale: float = 1.0
+    corner_gain: Dict[str, float] = field(
+        default_factory=lambda: {
+            "top_left": 1.0,
+            "top_right": 1.0,
+            "bottom_right": 1.0,
+            "bottom_left": 1.0,
+        }
+    )
 
 
 @dataclass
@@ -87,7 +96,19 @@ def load_config() -> AppConfig:
         payload = json.load(handle)
 
     camera = CameraSettings(**payload.get("camera", {}))
-    detection = DetectionSettings(**payload.get("detection", {}))
+    detection_payload = payload.get("detection", {})
+    corner_gain_payload = detection_payload.get("corner_gain")
+    detection = DetectionSettings(**detection_payload)
+    # Ensure corner_gain has all four keys even if loaded from an older config
+    if not isinstance(detection.corner_gain, dict):
+        detection.corner_gain = {}
+    for key, default in {
+        "top_left": 1.0,
+        "top_right": 1.0,
+        "bottom_right": 1.0,
+        "bottom_left": 1.0,
+    }.items():
+        detection.corner_gain.setdefault(key, default)
     calibration_payload = payload.get("calibration")
     calibration = None
     if calibration_payload:
