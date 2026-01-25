@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, Tuple
+from typing import Optional, Protocol, Tuple
 import time
 import platform
 import subprocess
@@ -173,7 +173,8 @@ class PointerDriver:
         self.min_move_px = min_move_px
         self._click_active = False
         self._click_started = 0.0
-        self._last_target = (0, 0)
+        self._last_target: Optional[Tuple[int, int]] = None
+        self._deadzone_skips = 0
         self._backend = self._select_backend()
 
     def _select_backend(self) -> _PointerBackend:
@@ -204,10 +205,9 @@ class PointerDriver:
         x = int(normalized[0] * width) + origin_x
         y = int(normalized[1] * height) + origin_y
 
-        delta_to_target = (abs(x - self._last_target[0]), abs(y - self._last_target[1]))
-        print(f"[Pointer] Target: ({x}, {y}), Last: {self._last_target}, Delta: {delta_to_target}")
-
-        if delta_to_target[0] > self.min_move_px or delta_to_target[1] > self.min_move_px:
+        if self._last_target is None:
+            delta_to_target = (None, None)
+            print(f"[Pointer] Target: ({x}, {y}), Last: None (first move)")
             try:
                 self._backend.move(x, y)
             except Exception as exc:
@@ -215,13 +215,46 @@ class PointerDriver:
                 self._backend = _PynputBackend()
                 self._backend.move(x, y)
             self._last_target = (x, y)
+            self._deadzone_skips = 0
+            return
+
+        dx = x - self._last_target[0]
+        dy = y - self._last_target[1]
+        delta_to_target = (abs(dx), abs(dy))
+        print(f"[Pointer] Target: ({x}, {y}), Last: {self._last_target}, Delta: {delta_to_target}")
+
+        # Use radial distance to decide whether to move so small diagonals are not overly suppressed.
+        distance_sq = dx * dx + dy * dy
+        if distance_sq > self.min_move_px * self.min_move_px:
+            try:
+                self._backend.move(x, y)
+            except Exception as exc:
+                print(f"[Pointer] Backend move failed: {exc}. Falling back to pynput")
+                self._backend = _PynputBackend()
+                self._backend.move(x, y)
+            self._last_target = (x, y)
+            self._deadzone_skips = 0
             print(f"[Pointer] Moved cursor to ({x}, {y})")
         else:
-            print(f"[Pointer] Skipped move - delta within {self.min_move_px}px threshold")
+            # Allow an occasional move even inside the deadzone to avoid lock-in during jitter.
+            if delta_to_target[0] > 0 or delta_to_target[1] > 0:
+                self._deadzone_skips += 1
+                if self._deadzone_skips >= 2:
+                    try:
+                        self._backend.move(x, y)
+                    except Exception as exc:
+                        print(f"[Pointer] Backend move failed inside deadzone: {exc}. Falling back to pynput")
+                        self._backend = _PynputBackend()
+                        self._backend.move(x, y)
+                    self._last_target = (x, y)
+                    self._deadzone_skips = 0
+                    print(f"[Pointer] Moved cursor to ({x}, {y}) after deadzone skips")
+                    return
+            print(f"[Pointer] Skipped move - delta within {self.min_move_px}px threshold (skips={self._deadzone_skips})")
 
     def update_click(self, pressed: bool) -> None:
         now = time.time()
-        target_x, target_y = self._last_target
+        target_x, target_y = self._last_target or (0, 0)
         if pressed and not self._click_active:
             try:
                 self._backend.press(target_x, target_y)

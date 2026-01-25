@@ -18,6 +18,9 @@ class CalibrationPoint:
     camera_px: Tuple[float, float]
     screen_px: Tuple[float, float]
     normalized_screen: Tuple[float, float]
+    # Blob characteristics captured during calibration (for learned thresholds)
+    intensity: float = 0.0
+    area: float = 0.0
 
 
 @dataclass
@@ -29,9 +32,20 @@ class CalibrationProfile:
     completed_at: float | None = None
     reprojection_error: float | None = None
     points: List[CalibrationPoint] = field(default_factory=list)
+    # Learned thresholds from calibration blob statistics (mean ± 2*stddev)
+    learned_intensity_min: float | None = None
+    learned_intensity_max: float | None = None
+    learned_area_min: float | None = None
+    learned_area_max: float | None = None
 
     def is_complete(self) -> bool:
         return len(self.points) == 4
+
+    def camera_quad(self) -> List[Tuple[float, float]] | None:
+        """Return the 4 camera-space calibration points as a quadrilateral (for filtering)."""
+        if len(self.points) < 4:
+            return None
+        return [pt.camera_px for pt in self.points]
 
 
 @dataclass
@@ -48,10 +62,14 @@ class DetectionSettings:
     sensitivity: float = 0.65
     hysteresis: float = 0.15
     smoothing: float = 0.25
+    # Cap how much the normalized pointer is allowed to move per frame to tame jittery jumps.
+    max_step: float = 0.18
     click_hold_ms: int = 120
     min_blob_area: int = 5
     max_blob_area: int = 500
-    min_move_px: int = 5
+    min_move_px: int = 2
+    # Minimum blob intensity to accept for tracking; keep low because many cameras report dim IR values.
+    min_intensity: float = 1.0
     fov_scale: float = 1.0
     corner_gain: Dict[str, float] = field(
         default_factory=lambda: {
@@ -118,6 +136,8 @@ def load_config() -> AppConfig:
                 camera_px=tuple(point["camera_px"]),
                 screen_px=tuple(point["screen_px"]),
                 normalized_screen=tuple(point["normalized_screen"]),
+                intensity=point.get("intensity", 0.0),
+                area=point.get("area", 0.0),
             )
             for point in calibration_payload.get("points", [])
         ]
@@ -129,6 +149,10 @@ def load_config() -> AppConfig:
             completed_at=calibration_payload.get("completed_at"),
             reprojection_error=calibration_payload.get("reprojection_error"),
             points=points,
+            learned_intensity_min=calibration_payload.get("learned_intensity_min"),
+            learned_intensity_max=calibration_payload.get("learned_intensity_max"),
+            learned_area_min=calibration_payload.get("learned_area_min"),
+            learned_area_max=calibration_payload.get("learned_area_max"),
         )
     return AppConfig(camera=camera, detection=detection, calibration=calibration)
 
@@ -147,12 +171,18 @@ def save_config(config: AppConfig) -> None:
             "monitor_index": config.calibration.monitor_index,
             "completed_at": config.calibration.completed_at or time.time(),
             "reprojection_error": config.calibration.reprojection_error,
+            "learned_intensity_min": config.calibration.learned_intensity_min,
+            "learned_intensity_max": config.calibration.learned_intensity_max,
+            "learned_area_min": config.calibration.learned_area_min,
+            "learned_area_max": config.calibration.learned_area_max,
             "points": [
                 {
                     "name": point.name,
                     "camera_px": list(point.camera_px),
                     "screen_px": list(point.screen_px),
                     "normalized_screen": list(point.normalized_screen),
+                    "intensity": point.intensity,
+                    "area": point.area,
                 }
                 for point in config.calibration.points
             ],

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from multiprocessing import Pipe, Process
 from multiprocessing.connection import Connection
 from threading import Event, Lock
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 import os
 import time
 
@@ -19,6 +19,14 @@ from pynput import keyboard
 from .camera import CameraStream
 from .config import AppConfig, CalibrationPoint, CalibrationProfile, save_config
 from .detection import AdaptiveThreshold, IrBlobDetector
+
+
+@dataclass
+class CollectedPointData:
+    """Data collected for a single calibration point."""
+    camera_px: Tuple[float, float]
+    intensity: float
+    area: float
 
 TARGET_OFFSET = 0.035
 TARGET_ORDER: Sequence[Tuple[str, Tuple[float, float]]] = (
@@ -358,6 +366,9 @@ def run_calibration(
     camera_points: List[Tuple[float, float]] = []
     screen_points: List[Tuple[float, float]] = []
     calibration_points: List[CalibrationPoint] = []
+    collected_data: List[CollectedPointData] = []
+    # Be more permissive during calibration so you don't have to shove the pen into the camera.
+    min_intensity = getattr(config.detection, "min_intensity", 0.0) * 0.5
 
     try:
         for index, (name, normalized) in enumerate(TARGET_ORDER, start=1):
@@ -381,17 +392,22 @@ def run_calibration(
                 dwell_frames,
                 abort_event,
                 camera_points,
+                min_intensity,
+                index,  # point_number for progressive distance relaxation
             )
             if collected is None:
                 raise CalibrationError("Calibration aborted by user")
-            camera_points.append(collected)
+            camera_points.append(collected.camera_px)
             screen_points.append(screen_target)
+            collected_data.append(collected)
             calibration_points.append(
                 CalibrationPoint(
                     name=name,
-                    camera_px=collected,
+                    camera_px=collected.camera_px,
                     screen_px=screen_target,
                     normalized_screen=normalized,
+                    intensity=collected.intensity,
+                    area=collected.area,
                 )
             )
     finally:
@@ -410,6 +426,21 @@ def run_calibration(
         errors.append(float(np.linalg.norm(np.array(px) - np.array(screen), ord=2)))
     reprojection_error = float(np.mean(errors)) if errors else None
 
+    # Compute learned thresholds from calibration blob statistics (mean ± 2*stddev)
+    intensities = [d.intensity for d in collected_data]
+    areas = [d.area for d in collected_data]
+    
+    int_mean = float(np.mean(intensities))
+    int_std = float(np.std(intensities)) if len(intensities) > 1 else int_mean * 0.3
+    area_mean = float(np.mean(areas))
+    area_std = float(np.std(areas)) if len(areas) > 1 else area_mean * 0.5
+    
+    # Use mean ± 2*stddev with generous floor/ceiling
+    learned_intensity_min = max(1.0, int_mean - 2.5 * int_std)
+    learned_intensity_max = int_mean + 3.0 * int_std
+    learned_area_min = max(3.0, area_mean - 2.5 * area_std)
+    learned_area_max = area_mean + 3.0 * area_std
+
     profile = CalibrationProfile(
         screen_size=(bounds.width, bounds.height),
         screen_origin=bounds.origin,
@@ -417,12 +448,17 @@ def run_calibration(
         monitor_index=bounds.monitor_index,
         reprojection_error=reprojection_error,
         points=calibration_points,
+        learned_intensity_min=learned_intensity_min,
+        learned_intensity_max=learned_intensity_max,
+        learned_area_min=learned_area_min,
+        learned_area_max=learned_area_max,
     )
     config.calibration = profile
     save_config(config)
     print(f"[Calibration] Saved config with {len(profile.points)} points:")
     for i, pt in enumerate(profile.points):
-        print(f"  Point {i}: camera={pt.camera_px}, screen={pt.screen_px}")
+        print(f"  Point {i}: camera={pt.camera_px}, screen={pt.screen_px}, intensity={pt.intensity:.1f}, area={pt.area:.1f}")
+    print(f"[Calibration] Learned thresholds: intensity=[{learned_intensity_min:.1f}, {learned_intensity_max:.1f}], area=[{learned_area_min:.1f}, {learned_area_max:.1f}]")
     return CalibrationResult(profile=profile)
 
 
@@ -434,10 +470,20 @@ def _collect_point(
     dwell_frames: int,
     abort_event: Event | None = None,
     existing_points: Sequence[Tuple[float, float]] | None = None,
-) -> Tuple[float, float] | None:
+    min_intensity: float = 0.0,
+    point_number: int = 1,
+) -> CollectedPointData | None:
     dwell = 0
     last_hit: Tuple[float, float] | None = None
     last_log_time = time.time()
+    settle_radius_sq = 6.0 * 6.0
+    # Track intensity/area samples during dwell for averaging
+    intensity_samples: List[float] = []
+    area_samples: List[float] = []
+    
+    # Progressive distance relaxation: 40px for first 3 points, 15px for 4th
+    min_distance = 15.0 if point_number >= 4 else 40.0
+    
     while True:
         if overlay.poll_cancelled() or (abort_event and abort_event.is_set()):
             return None
@@ -447,28 +493,59 @@ def _collect_point(
         blobs = detector.find_blobs(frame)
         if not blobs:
             dwell = 0
+            intensity_samples.clear()
+            area_samples.clear()
             continue
-        if existing_points:
-            blobs = [blob for blob in blobs if not _too_close(blob.center, existing_points)]
+        if min_intensity > 0:
+            blobs = [blob for blob in blobs if blob.intensity >= min_intensity]
         if not blobs:
             dwell = 0
+            intensity_samples.clear()
+            area_samples.clear()
+            continue
+        if existing_points:
+            blobs = [blob for blob in blobs if not _too_close(blob.center, existing_points, min_distance)]
+        if not blobs:
+            dwell = 0
+            intensity_samples.clear()
+            area_samples.clear()
             continue
         best = blobs[0]
-        if threshold.evaluate(best.intensity):
-            dwell += 1
+        if last_hit is None:
+            dwell = 1
             last_hit = best.center
+            intensity_samples = [best.intensity]
+            area_samples = [best.area]
         else:
-            dwell = max(0, dwell - 1)
+            dx = best.center[0] - last_hit[0]
+            dy = best.center[1] - last_hit[1]
+            if (dx * dx + dy * dy) <= settle_radius_sq:
+                dwell += 1
+                intensity_samples.append(best.intensity)
+                area_samples.append(best.area)
+                # Nudge toward the new point so we don't drift away from the user's aim.
+                last_hit = (last_hit[0] + dx * 0.5, last_hit[1] + dy * 0.5)
+            else:
+                dwell = 1
+                last_hit = best.center
+                intensity_samples = [best.intensity]
+                area_samples = [best.area]
         
         # Log progress every 2 seconds
         now = time.time()
         if now - last_log_time > 2.0:
-            print(f"[Calibration] Dwell: {dwell}/{dwell_frames}, Blob count: {len(detector.find_blobs(frame))}, Filtered: {len(blobs)}, Intensity: {best.intensity:.1f}")
+            print(f"[Calibration] Point {point_number}: Dwell: {dwell}/{dwell_frames}, Blob count: {len(detector.find_blobs(frame))}, Filtered: {len(blobs)}, Intensity: {best.intensity:.1f}, Area: {best.area:.1f}")
             last_log_time = now
         
         if dwell >= dwell_frames and last_hit is not None:
-            print(f"[Calibration] Point locked at {last_hit}")
-            return last_hit
+            avg_intensity = float(np.mean(intensity_samples)) if intensity_samples else best.intensity
+            avg_area = float(np.mean(area_samples)) if area_samples else best.area
+            print(f"[Calibration] Point {point_number} locked at {last_hit}, intensity={avg_intensity:.1f}, area={avg_area:.1f}")
+            return CollectedPointData(
+                camera_px=last_hit,
+                intensity=avg_intensity,
+                area=avg_area,
+            )
 
 
 def _too_close(candidate: Tuple[float, float], existing: Sequence[Tuple[float, float]], min_distance: float = 40.0) -> bool:

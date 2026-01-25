@@ -12,7 +12,7 @@ import numpy as np
 from .camera import CameraStream, CameraDescriptor, enumerate_devices
 from .calibration import CalibrationError, close_all_overlays, run_calibration
 from .config import AppConfig, load_config, save_config
-from .detection import AdaptiveThreshold, IrBlobDetector, Smoother
+from .detection import AdaptiveThreshold, BlobTracker, IrBlobDetector, QuadFilter, Smoother
 from .pointer import PointerDriver
 from . import ui
 
@@ -36,11 +36,18 @@ class RefurboardApp:
             sensitivity=self.config.detection.sensitivity,
             hysteresis=self.config.detection.hysteresis,
         )
-        self.smoother = Smoother(self.config.detection.smoothing)
+        self.smoother = Smoother(
+            self.config.detection.smoothing,
+            max_step=getattr(self.config.detection, "max_step", None),
+        )
         self.pointer_driver = PointerDriver(
             click_hold_ms=self.config.detection.click_hold_ms,
             min_move_px=self.config.detection.min_move_px,
         )
+        
+        # Tracking filters (initialized after calibration loaded)
+        self.quad_filter: QuadFilter | None = None
+        self.blob_tracker = BlobTracker(persistence_frames=3, association_radius=20.0)
 
         self.camera_stream: CameraStream | None = None
         self.camera_lock = threading.Lock()
@@ -58,6 +65,7 @@ class RefurboardApp:
         self.devices: list[CameraDescriptor] = enumerate_devices()
         self.camera_failed = not self._start_camera()
         self._rebuild_homography()
+        self._rebuild_filters()
         
         # Startup validation
         if self.config.calibration is None:
@@ -70,6 +78,8 @@ class RefurboardApp:
             print(f"[Refurboard] Loaded calibration with {len(self.config.calibration.points)} points, RMS error: {self.config.calibration.reprojection_error:.4f}px")
             if self.config.calibration.monitor_name is not None:
                 print(f"[Refurboard] Calibration monitor: {self.config.calibration.monitor_name} (index {self.config.calibration.monitor_index})")
+            if self.config.calibration.learned_intensity_min is not None:
+                print(f"[Refurboard] Learned thresholds: intensity=[{self.config.calibration.learned_intensity_min:.1f}, {self.config.calibration.learned_intensity_max:.1f}], area=[{self.config.calibration.learned_area_min:.1f}, {self.config.calibration.learned_area_max:.1f}]")
         
         self._start_tracking_loop()
 
@@ -132,10 +142,46 @@ class RefurboardApp:
                 continue
             now = time.monotonic()
             pointer_blocked = self._calibrating.is_set() or now < self._pointer_resume_time
+            
+            # === BLOB DETECTION PIPELINE ===
             blobs = self.detector.find_blobs(frame)
+            raw_count = len(blobs)
+            
+            # Step 1: Filter by learned intensity/area thresholds (if available)
+            calib = self.config.calibration
+            if blobs and calib and calib.learned_intensity_min is not None:
+                blobs = [
+                    b for b in blobs
+                    if calib.learned_intensity_min <= b.intensity <= calib.learned_intensity_max
+                    and calib.learned_area_min <= b.area <= calib.learned_area_max
+                ]
+            elif blobs:
+                # Fallback to basic min_intensity filter
+                min_int = getattr(self.config.detection, "min_intensity", 0)
+                if min_int > 0:
+                    blobs = [b for b in blobs if b.intensity >= min_int]
+            
+            filtered_by_threshold = len(blobs)
+            
+            # Step 2: Filter by camera-space quad (only accept blobs inside calibration region)
+            if blobs and self.quad_filter:
+                blobs = self.quad_filter.filter_blobs(blobs)
+            
+            filtered_by_quad = len(blobs)
+            
+            # Step 3: Require persistence (blob must appear for N consecutive frames)
+            if blobs:
+                blobs = self.blob_tracker.update(blobs)
+            else:
+                self.blob_tracker.update([])  # Clear tracks on empty frame
+            
+            filtered_by_persistence = len(blobs)
+            
+            # === POINTER MOVEMENT ===
             click_active = False
             normalized: Tuple[float, float] | None = None
             intensity = 0.0
+            
             if blobs:
                 best = blobs[0]
                 intensity = best.intensity
@@ -143,13 +189,9 @@ class RefurboardApp:
                 projected = self._project(best.center)
                 if projected:
                     normalized = self.smoother.update(projected)
-                    has_calib = bool(self.config.calibration)
-                    is_blocked = pointer_blocked
                     if self.config.calibration and not pointer_blocked:
-                        print(f"[Tracking] Calling move: normalized={normalized}, blocked={is_blocked}, has_calib={has_calib}")
                         self.pointer_driver.move(normalized, self.config.calibration)
-                    else:
-                        print(f"[Tracking] NOT calling move: blocked={is_blocked}, has_calib={has_calib}")
+            
             if pointer_blocked:
                 self.pointer_driver.update_click(False)
             else:
@@ -160,8 +202,9 @@ class RefurboardApp:
             if now - last_debug_time > 5.0:
                 has_calib = self.config.calibration is not None
                 has_homo = self.homography is not None
+                has_quad = self.quad_filter is not None
                 blocked_reason = "calibrating" if self._calibrating.is_set() else "cooldown" if now < self._pointer_resume_time else "none"
-                print(f"[Tracking] Blobs: {len(blobs)}, Intensity: {intensity:.1f}, Projected: {normalized}, Calibrated: {has_calib}, Homography: {has_homo}, Blocked: {blocked_reason}")
+                print(f"[Tracking] Raw: {raw_count}, Threshold: {filtered_by_threshold}, Quad: {filtered_by_quad}, Persist: {filtered_by_persistence}, Intensity: {intensity:.1f}, Blocked: {blocked_reason}")
                 last_debug_time = now
             
             time.sleep(0.01)
@@ -186,28 +229,7 @@ class RefurboardApp:
         return adjusted
 
     def _apply_field_correction(self, x: float, y: float) -> Tuple[float, float]:
-        # Center-relative FoV scaling
-        cx, cy = 0.5, 0.5
-        scale = getattr(self.config.detection, "fov_scale", 1.0)
-        if scale != 1.0:
-            x = cx + (x - cx) * scale
-            y = cy + (y - cy) * scale
-
-        # Bilinear corner gain (per-corner radial stretching)
-        gains = getattr(self.config.detection, "corner_gain", {}) or {}
-        g_tl = gains.get("top_left", 1.0)
-        g_tr = gains.get("top_right", 1.0)
-        g_br = gains.get("bottom_right", 1.0)
-        g_bl = gains.get("bottom_left", 1.0)
-
-        top = g_tl + (g_tr - g_tl) * x
-        bottom = g_bl + (g_br - g_bl) * x
-        gain = top + (bottom - top) * y
-
-        if gain != 1.0:
-            x = cx + (x - cx) * gain
-            y = cy + (y - cy) * gain
-
+        # FoV/corner gain disabled: return unclamped normalized coords.
         return (float(np.clip(x, 0.0, 1.0)), float(np.clip(y, 0.0, 1.0)))
 
     def _rebuild_homography(self) -> None:
@@ -217,6 +239,20 @@ class RefurboardApp:
         source = np.array([point.camera_px for point in self.config.calibration.points], dtype=np.float32)
         dest = np.array([point.screen_px for point in self.config.calibration.points], dtype=np.float32)
         self.homography = cv2.getPerspectiveTransform(source, dest)
+
+    def _rebuild_filters(self) -> None:
+        """Rebuild QuadFilter from calibration data."""
+        if not self.config.calibration:
+            self.quad_filter = None
+            return
+        quad = self.config.calibration.camera_quad()
+        if quad:
+            self.quad_filter = QuadFilter(quad)
+            print(f"[Refurboard] QuadFilter initialized with camera quad: {quad}")
+        else:
+            self.quad_filter = None
+        # Reset tracker when calibration changes
+        self.blob_tracker.reset()
 
     # UI hooks -----------------------------------------------------------------
     def get_devices(self) -> list[CameraDescriptor]:
@@ -316,6 +352,7 @@ class RefurboardApp:
         print(f"[Refurboard] Reloaded config from disk. Calibration points: {len(self.config.calibration.points) if self.config.calibration else 0}")
         print(f"[Refurboard] Config reprojection_error after reload: {self.config.calibration.reprojection_error if self.config.calibration else 'None'}")
         self._rebuild_homography()
+        self._rebuild_filters()
         with self.telemetry_lock:
             self.telemetry.calibration_error = profile.reprojection_error
             print(f"[Refurboard] Telemetry calibration_error set to: {self.telemetry.calibration_error}")
