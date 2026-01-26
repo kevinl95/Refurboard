@@ -37,6 +37,9 @@ class CalibrationProfile:
     learned_intensity_max: float | None = None
     learned_area_min: float | None = None
     learned_area_max: float | None = None
+    # Camera orientation: 0=normal, 90=rotated clockwise, 180=upside down, 270=rotated counter-clockwise
+    # Detected from first calibration point position relative to frame center
+    camera_orientation: int = 0
 
     def is_complete(self) -> bool:
         return len(self.points) == 4
@@ -68,8 +71,9 @@ class DetectionSettings:
     min_blob_area: int = 5
     max_blob_area: int = 500
     min_move_px: int = 2
-    # Minimum blob intensity to accept for tracking; keep low because many cameras report dim IR values.
-    min_intensity: float = 1.0
+    # Minimum blob intensity to accept - filters ambient IR reflections (~3-4) from pen LED side-brightness (~10-30)
+    # Set to 10 to reliably detect corners where LED angle is poorest
+    min_intensity: float = 10.0
     fov_scale: float = 1.0
     corner_gain: Dict[str, float] = field(
         default_factory=lambda: {
@@ -153,6 +157,7 @@ def load_config() -> AppConfig:
             learned_intensity_max=calibration_payload.get("learned_intensity_max"),
             learned_area_min=calibration_payload.get("learned_area_min"),
             learned_area_max=calibration_payload.get("learned_area_max"),
+            camera_orientation=calibration_payload.get("camera_orientation", 0),
         )
     return AppConfig(camera=camera, detection=detection, calibration=calibration)
 
@@ -175,6 +180,7 @@ def save_config(config: AppConfig) -> None:
             "learned_intensity_max": config.calibration.learned_intensity_max,
             "learned_area_min": config.calibration.learned_area_min,
             "learned_area_max": config.calibration.learned_area_max,
+            "camera_orientation": config.calibration.camera_orientation,
             "points": [
                 {
                     "name": point.name,

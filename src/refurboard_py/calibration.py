@@ -1,4 +1,11 @@
-"""Calibration workflow with a multi-monitor aware overlay."""
+"""Calibration workflow for mirrored display mode.
+
+Refurboard operates in mirrored mode, where your projector displays the same content
+as your primary display. This simplifies cursor control on Wayland/GNOME since all
+coordinates stay within the primary display's bounds.
+
+To use: Mirror your projector with your primary display in GNOME Settings → Displays.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,12 +28,126 @@ from .config import AppConfig, CalibrationPoint, CalibrationProfile, save_config
 from .detection import AdaptiveThreshold, IrBlobDetector
 
 
+def _get_gnome_display_resolution() -> Optional[Tuple[int, int]]:
+    """Get actual display resolution from GNOME Mutter via DBus.
+    
+    In mirrored mode, screeninfo lies and reports scaled/virtual resolutions.
+    GNOME's DBus API tells us the real current mode.
+    
+    Strategy: Find the current mode for an external (non-builtin) display,
+    since in mirrored mode that's the resolution both screens share.
+    If no external display, use the primary/builtin display's current mode.
+    """
+    try:
+        import subprocess
+        result = subprocess.run(
+            [
+                "gdbus", "call", "--session",
+                "--dest", "org.gnome.Mutter.DisplayConfig",
+                "--object-path", "/org/gnome/Mutter/DisplayConfig",
+                "--method", "org.gnome.Mutter.DisplayConfig.GetCurrentState"
+            ],
+            capture_output=True, text=True, timeout=2
+        )
+        if result.returncode != 0:
+            print(f"[Calibration] GNOME DBus failed with code {result.returncode}: {result.stderr[:100]}")
+            return None
+        
+        output = result.stdout
+        import re
+        
+        # Split by monitor blocks - each starts with (('ConnectorName', 
+        # Look for blocks with 'is-builtin': <false> that have a current mode
+        # External displays (projectors) aren't builtin
+        
+        # Find external display's current mode
+        # Pattern: is-current followed eventually by is-builtin: false
+        # Actually, let's look for the DP-* connector's current mode
+        
+        # Find all connectors and their current modes
+        # Format: (('DP-3', ...), [('1920x1080@60.000', 1920, 1080, ..., {'is-current': <true>})...], {'is-builtin': <false>...})
+        
+        # Simpler: find resolutions marked current, prefer the one that appears
+        # with an external connector (DP-*, HDMI-*)
+        
+        # Pattern to find connector block with its modes and builtin status
+        # Look for mode with is-current in a block where is-builtin is false
+        external_pattern = r"\('(DP-\d+|HDMI-\d+)',.*?\('(\d+)x(\d+)@[\d.]+',.*?'is-current': <true>"
+        ext_match = re.search(external_pattern, output, re.DOTALL)
+        if ext_match:
+            width, height = int(ext_match.group(2)), int(ext_match.group(3))
+            print(f"[Calibration] GNOME DBus found external display: {width}x{height}")
+            return (width, height)
+        
+        # Fallback: find any current mode
+        pattern = r"\('(\d+)x(\d+)@[\d.]+',.*?\{'is-current': <true>\}"
+        matches = re.findall(pattern, output)
+        if matches:
+            # If multiple, prefer smaller (more likely to be actual mirrored mode)
+            resolutions = [(int(w), int(h)) for w, h in matches]
+            resolutions.sort(key=lambda r: r[0] * r[1])
+            print(f"[Calibration] GNOME DBus found displays: {resolutions}")
+            return resolutions[0]
+        print(f"[Calibration] GNOME DBus: no current mode found in output")
+    except Exception as e:
+        print(f"[Calibration] GNOME DBus exception: {e}")
+    return None
+
+
 @dataclass
 class CollectedPointData:
     """Data collected for a single calibration point."""
     camera_px: Tuple[float, float]
     intensity: float
     area: float
+
+
+def check_display_setup() -> Tuple[bool, str]:
+    """Check if display setup is suitable for Refurboard (mirrored mode).
+    
+    Returns:
+        (is_ok, message): True if setup looks good, message explaining status.
+    """
+    try:
+        monitors = get_monitors()
+    except Exception:
+        return True, "Could not detect monitors"
+    
+    if len(monitors) <= 1:
+        return True, "Single display detected - ready to use"
+    
+    # Check for mirrored displays (multiple monitors at same position)
+    positions = set()
+    mirrored_groups = []
+    for m in monitors:
+        pos = (m.x, m.y)
+        if pos in positions:
+            mirrored_groups.append(pos)
+        positions.add(pos)
+    
+    if mirrored_groups:
+        return True, f"Mirrored display detected at {mirrored_groups[0]} - ready to use"
+    
+    # Extended displays - warn user
+    primary = None
+    externals = []
+    for m in monitors:
+        name = str(getattr(m, "name", "")).lower()
+        if m.x == 0 and m.y == 0:
+            primary = m
+        if not any(tag in name for tag in ("edp", "lvds", "dsi")):
+            externals.append(m)
+    
+    if externals and primary:
+        ext_names = [getattr(m, "name", "unknown") for m in externals]
+        primary_name = getattr(primary, "name", "unknown")
+        return False, (
+            f"Extended display mode detected. "
+            f"For best results, mirror your projector with {primary_name}.\n"
+            f"External displays: {', '.join(ext_names)}"
+        )
+    
+    return True, "Display setup OK"
 
 TARGET_OFFSET = 0.035
 TARGET_ORDER: Sequence[Tuple[str, Tuple[float, float]]] = (
@@ -134,8 +255,18 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
     root = tk.Tk()
     root.overrideredirect(True)
     root.configure(bg="#050505")
-    root.geometry(f"{bounds.width}x{bounds.height}+{bounds.origin[0]}+{bounds.origin[1]}")
+    # Force position to (0,0) for mirrored mode - Wayland may ignore this
+    geom = f"{bounds.width}x{bounds.height}+0+0"
+    root.geometry(geom)
     root.attributes("-topmost", True)
+    
+    # Try to force the position again after the window is mapped
+    def _force_position():
+        root.geometry(geom)
+        root.update_idletasks()
+    root.after(50, _force_position)
+    root.after(100, _force_position)
+    
     canvas = tk.Canvas(
         root,
         width=bounds.width,
@@ -186,11 +317,27 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
     def _draw_target(local_target: Tuple[int, int], label: str, progress: int) -> None:
         canvas.delete("all")
         base = min(bounds.width, bounds.height)
-        radius = max(20, int(base * 0.05))
-        header_size = max(18, min(48, int(bounds.height * 0.095)))
-        body_size = max(14, min(32, int(bounds.height * 0.06)))
-        header_y = int(bounds.height * 0.2)
-        footer_y = bounds.height - int(bounds.height * 0.15)
+        # Small target - just needs to be visible
+        radius = max(12, int(base * 0.02))
+        # Modest font sizes that fit on screen
+        header_size = max(14, min(28, int(bounds.height * 0.028)))
+        body_size = max(10, min(18, int(bounds.height * 0.018)))
+        header_y = int(bounds.height * 0.08)
+        footer_y = bounds.height - int(bounds.height * 0.06)
+        
+        # Simple crosshair
+        line_len = radius + 8
+        canvas.create_line(
+            local_target[0] - line_len, local_target[1],
+            local_target[0] + line_len, local_target[1],
+            fill="#1E90FF", width=2
+        )
+        canvas.create_line(
+            local_target[0], local_target[1] - line_len,
+            local_target[0], local_target[1] + line_len,
+            fill="#1E90FF", width=2
+        )
+        # Small filled circle
         canvas.create_oval(
             local_target[0] - radius,
             local_target[1] - radius,
@@ -199,24 +346,30 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
             fill="#1E90FF",
             outline="",
         )
-        header = f"Aim IR pen at {label.replace('_', ' ').title()} ({progress}/4)"
+        
+        header = f"Point {progress}/4: {label.replace('_', ' ').title()}"
         canvas.create_text(
             bounds.width / 2,
             header_y,
             text=header,
             fill="#FFFFFF",
             font=("Helvetica", header_size, "bold"),
-            justify="center",
-            width=int(bounds.width * 0.9),
+        )
+        # Add warning about mirrored display
+        warning_y = header_y + header_size + 8
+        canvas.create_text(
+            bounds.width / 2,
+            warning_y,
+            text="(Calibrate on the MIRRORED/PROJECTED display!)",
+            fill="#FF8800",
+            font=("Helvetica", max(10, body_size - 2)),
         )
         canvas.create_text(
             bounds.width / 2,
             footer_y,
-            text="Hold steady until the marker locks. Press ESC to cancel.",
-            fill="#D2D2D2",
+            text="Aim at target, hold steady. ESC to cancel.",
+            fill="#AAAAAA",
             font=("Helvetica", body_size),
-            justify="center",
-            width=int(bounds.width * 0.9),
         )
 
     def _pump_pipe() -> None:
@@ -271,82 +424,80 @@ def _pointer_position() -> Tuple[int, int]:
     return int(x), int(y)
 
 
-def _screen_bounds() -> ScreenBounds:
-    pointer_x, pointer_y = _pointer_position()
+def get_primary_display() -> ScreenBounds:
+    """Get the display to use for mirrored mode calibration.
+    
+    In mirrored mode, screeninfo reports incorrect (scaled) resolutions.
+    We query GNOME's DBus API for the actual current mode.
+    """
+    # First, try to get the real resolution from GNOME
+    real_res = _get_gnome_display_resolution()
+    if real_res:
+        width, height = real_res
+        print(f"[Calibration] GNOME reports actual resolution: {width}x{height}")
+        return ScreenBounds(
+            width=width,
+            height=height,
+            origin=(0, 0),
+            monitor_name="primary",
+            monitor_index=0,
+        )
+    
+    # Fallback to screeninfo
     try:
         monitors = get_monitors()
     except Exception:
         monitors = []
-    chosen = None
-    chosen_index: int | None = None
-
-    preferred_name = os.getenv("REFURBOARD_MONITOR_NAME")
-    if preferred_name:
-        for idx, monitor in enumerate(monitors):
-            name = str(getattr(monitor, "name", ""))
-            if preferred_name.lower() in name.lower():
-                chosen = monitor
-                chosen_index = idx
-                break
-
-    if chosen is None:
-        preferred_index = os.getenv("REFURBOARD_MONITOR_INDEX")
-        if preferred_index is not None:
-            try:
-                idx = int(preferred_index)
-                if 0 <= idx < len(monitors):
-                    chosen = monitors[idx]
-                    chosen_index = idx
-            except ValueError:
-                pass
-
-    def _is_internal(mon) -> bool:
-        name = str(getattr(mon, "name", "")).lower()
-        return any(tag in name for tag in ("edp", "lvds", "dsi"))
-
-    external = [m for m in monitors if not _is_internal(m)]
-
-    if chosen is None and external:
-        for idx, monitor in enumerate(monitors):
-            if monitor in external and monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
-                chosen = monitor
-                chosen_index = idx
-                break
-
-    if chosen is None and external:
-        biggest_ext = max(external, key=lambda m: m.width * m.height)
-        chosen = biggest_ext
-        chosen_index = monitors.index(biggest_ext)
-
-    if chosen is None:
-        for idx, monitor in enumerate(monitors):
-            if monitor.x <= pointer_x < monitor.x + monitor.width and monitor.y <= pointer_y < monitor.y + monitor.height:
-                chosen = monitor
-                chosen_index = idx
-                break
-
-    if chosen is None and monitors:
-        chosen = max(monitors, key=lambda m: m.width * m.height)
-        chosen_index = monitors.index(chosen)
-
-    if chosen is None:
+    
+    if not monitors:
+        # Fallback to Tk
         root = tk.Tk()
         root.withdraw()
         width = root.winfo_screenwidth()
         height = root.winfo_screenheight()
         root.destroy()
-        print("[Calibration] screeninfo unavailable; falling back to primary display")
-        return ScreenBounds(width=width, height=height, origin=(0, 0))
-
-    monitor_name = getattr(chosen, "name", "unknown") or "unknown"
-    print(f"[Calibration] Using monitor '{monitor_name}' at origin {(chosen.x, chosen.y)}, size {chosen.width}x{chosen.height}")
+        print("[Calibration] No monitors detected; using Tk fallback")
+        return ScreenBounds(width=width, height=height, origin=(0, 0), monitor_name="primary", monitor_index=0)
+    
+    # Find all monitors at origin (0,0) - these are mirrored
+    mirrored = [(idx, m) for idx, m in enumerate(monitors) if m.x == 0 and m.y == 0]
+    
+    if not mirrored:
+        # No monitor at origin, use the first one
+        monitor = monitors[0]
+        name = getattr(monitor, "name", "primary") or "primary"
+        print(f"[Calibration] No monitor at origin; using '{name}' at ({monitor.x},{monitor.y})")
+        return ScreenBounds(
+            width=monitor.width,
+            height=monitor.height,
+            origin=(0, 0),
+            monitor_name=name,
+            monitor_index=0,
+        )
+    
+    # Use the smallest mirrored display (visible on all mirrored screens)
+    smallest_idx, smallest = min(mirrored, key=lambda x: x[1].width * x[1].height)
+    name = getattr(smallest, "name", "primary") or "primary"
+    
+    if len(mirrored) > 1:
+        names = [getattr(m, "name", "?") for _, m in mirrored]
+        print(f"[Calibration] Mirrored displays at (0,0): {names}")
+        print(f"[Calibration] Using smallest: '{name}' {smallest.width}x{smallest.height}")
+    else:
+        print(f"[Calibration] Primary display: '{name}' at (0,0), size {smallest.width}x{smallest.height}")
+    
     return ScreenBounds(
-        width=chosen.width,
-        height=chosen.height,
-        origin=(chosen.x, chosen.y),
-        monitor_name=monitor_name,
-        monitor_index=chosen_index,
+        width=smallest.width,
+        height=smallest.height,
+        origin=(0, 0),
+        monitor_name=name,
+        monitor_index=smallest_idx,
     )
+
+
+def _screen_bounds() -> ScreenBounds:
+    """Get screen bounds for calibration - always uses primary display for mirrored mode."""
+    return get_primary_display()
 
 
 def run_calibration(
@@ -358,6 +509,7 @@ def run_calibration(
     abort_event: Event | None = None,
 ) -> CalibrationResult:
     bounds = _screen_bounds()
+    print(f"[Calibration] Using monitor '{bounds.monitor_name}' at origin {bounds.origin}, size {bounds.width}x{bounds.height}")
     overlay = CalibrationOverlay(bounds)
     if abort_event and abort_event.is_set():
         overlay.close()
@@ -367,22 +519,21 @@ def run_calibration(
     screen_points: List[Tuple[float, float]] = []
     calibration_points: List[CalibrationPoint] = []
     collected_data: List[CollectedPointData] = []
-    # Be more permissive during calibration so you don't have to shove the pen into the camera.
-    min_intensity = getattr(config.detection, "min_intensity", 0.0) * 0.5
+    # Require bright pen LED (intensity ~70-100), not ambient IR reflections (~3)
+    min_intensity = getattr(config.detection, "min_intensity", 40.0)
 
     try:
         for index, (name, normalized) in enumerate(TARGET_ORDER, start=1):
             if abort_event and abort_event.is_set():
                 raise CalibrationError("Calibration aborted by user")
             threshold.reset()
+            # In mirrored mode, screen targets are relative to (0,0) on primary display
             local_target = (
                 int(normalized[0] * bounds.width),
                 int(normalized[1] * bounds.height),
             )
-            screen_target = (
-                local_target[0] + bounds.origin[0],
-                local_target[1] + bounds.origin[1],
-            )
+            # Store screen_target as local coords (same as local_target for mirrored mode)
+            screen_target = local_target
             overlay.set_target(local_target, name, index)
             collected = _collect_point(
                 camera,
@@ -441,9 +592,15 @@ def run_calibration(
     learned_area_min = max(3.0, area_mean - 2.5 * area_std)
     learned_area_max = area_mean + 3.0 * area_std
 
+    # Detect camera orientation from first calibration point position
+    # First point is top-left of screen - check where it appears in camera frame
+    camera_orientation = _detect_orientation(camera_points, camera.width, camera.height)
+    print(f"[Calibration] Detected camera orientation: {camera_orientation}° (0=normal, 90=CW, 180=upside-down, 270=CCW)")
+
+    # In mirrored mode, always use origin (0,0) - cursor coords are relative to primary display
     profile = CalibrationProfile(
         screen_size=(bounds.width, bounds.height),
-        screen_origin=bounds.origin,
+        screen_origin=(0, 0),  # Mirrored mode: always (0,0)
         monitor_name=bounds.monitor_name,
         monitor_index=bounds.monitor_index,
         reprojection_error=reprojection_error,
@@ -452,9 +609,11 @@ def run_calibration(
         learned_intensity_max=learned_intensity_max,
         learned_area_min=learned_area_min,
         learned_area_max=learned_area_max,
+        camera_orientation=camera_orientation,
     )
     config.calibration = profile
     save_config(config)
+    print(f"[Calibration] Mirrored mode: primary display {bounds.width}x{bounds.height}, cursor coords relative to (0,0)")
     print(f"[Calibration] Saved config with {len(profile.points)} points:")
     for i, pt in enumerate(profile.points):
         print(f"  Point {i}: camera={pt.camera_px}, screen={pt.screen_px}, intensity={pt.intensity:.1f}, area={pt.area:.1f}")
@@ -481,8 +640,9 @@ def _collect_point(
     intensity_samples: List[float] = []
     area_samples: List[float] = []
     
-    # Progressive distance relaxation: 40px for first 3 points, 15px for 4th
-    min_distance = 15.0 if point_number >= 4 else 40.0
+    # Consistent parameters for all points - no special treatment needed
+    min_distance = 40.0
+    effective_min_intensity = min_intensity
     
     while True:
         if overlay.poll_cancelled() or (abort_event and abort_event.is_set()):
@@ -496,8 +656,8 @@ def _collect_point(
             intensity_samples.clear()
             area_samples.clear()
             continue
-        if min_intensity > 0:
-            blobs = [blob for blob in blobs if blob.intensity >= min_intensity]
+        if effective_min_intensity > 0:
+            blobs = [blob for blob in blobs if blob.intensity >= effective_min_intensity]
         if not blobs:
             dwell = 0
             intensity_samples.clear()
@@ -554,3 +714,40 @@ def _too_close(candidate: Tuple[float, float], existing: Sequence[Tuple[float, f
         if ((cx - px) ** 2 + (cy - py) ** 2) ** 0.5 < min_distance:
             return True
     return False
+
+
+def _detect_orientation(camera_points: List[Tuple[float, float]], frame_width: int, frame_height: int) -> int:
+    """
+    Detect camera rotation from calibration points.
+    
+    The first calibration point is always the screen's top-left corner.
+    By checking where this point appears in the camera frame, we can
+    determine if the camera is rotated.
+    
+    Returns: 0, 90, 180, or 270 degrees clockwise rotation
+    """
+    if not camera_points:
+        return 0
+    
+    # Get first point (top-left of screen) and compute its quadrant in camera frame
+    tl_x, tl_y = camera_points[0]
+    cx, cy = frame_width / 2, frame_height / 2
+    
+    # Normalize to -1 to 1 relative to center
+    nx = (tl_x - cx) / cx if cx > 0 else 0
+    ny = (tl_y - cy) / cy if cy > 0 else 0
+    
+    # Determine which quadrant the "top-left" point is in
+    # Normal orientation: top-left should be in upper-left quadrant (nx<0, ny<0)
+    # 90° CW rotation: top-left appears in upper-right (nx>0, ny<0)  
+    # 180° rotation: top-left appears in lower-right (nx>0, ny>0)
+    # 270° CW rotation: top-left appears in lower-left (nx<0, ny>0)
+    
+    if nx < 0 and ny < 0:
+        return 0    # Normal - top-left is in camera's upper-left
+    elif nx > 0 and ny < 0:
+        return 90   # Camera rotated 90° CW - top-left is in camera's upper-right
+    elif nx > 0 and ny > 0:
+        return 180  # Camera upside down - top-left is in camera's lower-right
+    else:  # nx < 0 and ny > 0
+        return 270  # Camera rotated 270° CW (90° CCW) - top-left is in camera's lower-left

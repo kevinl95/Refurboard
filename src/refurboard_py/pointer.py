@@ -76,26 +76,132 @@ class _PynputBackend:
 
 
 class _LinuxBackend(_PynputBackend):
+    """Linux backend using ydotool for Wayland cursor control.
+    
+    Uses RELATIVE movements to avoid mouse acceleration issues with absolute mode.
+    ydotool's absolute mode requires disabling mouse acceleration, which we don't
+    want to force on users. We track position internally since pynput cannot read
+    cursor position on Wayland.
+    """
+    
     def __init__(self) -> None:
         super().__init__()
+        self._has_ydotool = self._check_ydotool()
+        self._last_x: Optional[int] = None
+        self._last_y: Optional[int] = None
+        if self._has_ydotool:
+            print("[Pointer] Using Linux ydotool backend (relative mode)")
+        else:
+            print("[Pointer] ydotool not found, falling back to pynput (may not work on Wayland)")
 
-    def move(self, x: int, y: int) -> None:
-        """Move cursor using ydotool when available (Wayland-friendly)."""
+    def _check_ydotool(self) -> bool:
+        """Check if ydotool is available."""
         try:
             result = subprocess.run(
-                ['ydotool', 'mousemove', '--absolute', '-x', str(x), '-y', str(y)],
+                ['which', 'ydotool'],
+                capture_output=True,
+                timeout=1.0,
+                check=False,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def move(self, x: int, y: int) -> None:
+        """Move cursor using ydotool RELATIVE positioning.
+        
+        We use relative mode because absolute mode requires disabling mouse
+        acceleration globally, which affects normal mouse use. Position is
+        tracked internally since pynput cannot read cursor position on Wayland.
+        """
+        if not self._has_ydotool:
+            super().move(x, y)
+            return
+        
+        # First move - establish cursor at the correct position
+        # Since we can't know where cursor currently is on Wayland, we reset to (0,0)
+        # by moving a large negative delta, then move to our target position
+        if self._last_x is None or self._last_y is None:
+            print(f"[Pointer] First detection at ({x}, {y}) - resetting cursor position")
+            try:
+                # Move far negative to ensure we hit (0,0) regardless of current position
+                # Most screens are under 8K resolution, so -10000 should be enough
+                subprocess.run(
+                    ['ydotool', 'mousemove', '-x', '-10000', '-y', '-10000'],
+                    check=False, capture_output=True, timeout=0.1,
+                )
+                # Small delay to ensure the reset takes effect
+                time.sleep(0.01)
+                # Now move to the actual target position from (0,0)
+                result = subprocess.run(
+                    ['ydotool', 'mousemove', '-x', str(x), '-y', str(y)],
+                    check=False, capture_output=True, timeout=0.1,
+                )
+                if result.returncode == 0:
+                    self._last_x = x
+                    self._last_y = y
+                    print(f"[Pointer] Cursor initialized at ({x}, {y})")
+                else:
+                    print(f"[Pointer] Failed to initialize cursor position")
+            except Exception as e:
+                print(f"[Pointer] Error initializing cursor: {e}")
+            return
+        
+        # Calculate delta from our tracked position
+        dx = x - self._last_x
+        dy = y - self._last_y
+        
+        # Skip tiny movements (jitter suppression)
+        if abs(dx) <= 1 and abs(dy) <= 1:
+            return
+        
+        try:
+            # Use relative movement (no --absolute flag)
+            result = subprocess.run(
+                ['ydotool', 'mousemove', '-x', str(dx), '-y', str(dy)],
                 check=False,
                 capture_output=True,
                 timeout=0.1,
             )
-            if result.returncode != 0:
+            if result.returncode == 0:
+                self._last_x = x
+                self._last_y = y
+            else:
                 stderr = result.stderr.decode('utf-8', errors='ignore').strip()
-                stdout = result.stdout.decode('utf-8', errors='ignore').strip()
-                print(f"[Pointer] ydotool returned {result.returncode}. stdout='{stdout}' stderr='{stderr}'. Falling back to pynput")
+                print(f"[Pointer] ydotool failed: {stderr}")
+                # Fallback to pynput
                 super().move(x, y)
         except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
-            print(f"[Pointer] ydotool failed: {e}, falling back to pynput")
+            print(f"[Pointer] ydotool failed: {e}, using pynput")
             super().move(x, y)
+
+    def press(self, x: int, y: int) -> None:
+        """Press at position."""
+        self.move(x, y)
+        if self._has_ydotool:
+            try:
+                subprocess.run(
+                    ['ydotool', 'click', '0xC0'], # Left button down
+                    check=False, capture_output=True, timeout=0.1
+                )
+            except Exception:
+                super().press(x, y)
+        else:
+            super().press(x, y)
+
+    def release(self, x: int, y: int) -> None:
+        """Release at position."""
+        self.move(x, y)
+        if self._has_ydotool:
+            try:
+                subprocess.run(
+                    ['ydotool', 'click', '0xC1'], # Left button up
+                    check=False, capture_output=True, timeout=0.1
+                )
+            except Exception:
+                super().release(x, y)
+        else:
+            super().release(x, y)
 
 
 class _MacBackend:
@@ -199,11 +305,18 @@ class PointerDriver:
         print("[Pointer] Using default pynput backend")
         return _PynputBackend()
 
+    def reset_position(self) -> None:
+        """Clear the last known position so the next pen detection starts fresh."""
+        self._last_target = None
+        self._deadzone_skips = 0
+
     def move(self, normalized: Tuple[float, float], calibration: CalibrationProfile) -> None:
+        """Move cursor to position. In mirrored mode, coords are relative to primary display (0,0)."""
         width, height = calibration.screen_size
-        origin_x, origin_y = getattr(calibration, "screen_origin", (0, 0))
-        x = int(normalized[0] * width) + origin_x
-        y = int(normalized[1] * height) + origin_y
+        # In mirrored mode, always use origin (0,0) regardless of what's stored
+        # This ensures cursor stays within primary display bounds
+        x = int(normalized[0] * width)
+        y = int(normalized[1] * height)
 
         if self._last_target is None:
             delta_to_target = (None, None)

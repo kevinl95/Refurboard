@@ -19,15 +19,27 @@ class IrBlob:
 class QuadFilter:
     """Filters blobs to only those inside a camera-space quadrilateral."""
     
-    def __init__(self, quad_vertices: List[Tuple[float, float]]) -> None:
+    def __init__(self, quad_vertices: List[Tuple[float, float]], expand_pct: float = 0.12) -> None:
         """
         Initialize with 4 camera-space points defining the valid region.
         Points should be in order: top_left, top_right, bottom_right, bottom_left.
+        
+        Args:
+            quad_vertices: 4 camera-space calibration points
+            expand_pct: Expand the quad outward by this percentage (default 12%)
+                        to cover screen edges beyond calibration targets
         """
         if len(quad_vertices) < 4:
             raise ValueError("QuadFilter requires exactly 4 vertices")
-        # Convert to numpy array for cv2.pointPolygonTest
-        self._contour = np.array(quad_vertices, dtype=np.float32).reshape((-1, 1, 2))
+        
+        pts = np.array(quad_vertices, dtype=np.float32)
+        
+        # Expand quad outward from centroid to cover screen edges
+        centroid = pts.mean(axis=0)
+        expanded = centroid + (pts - centroid) * (1.0 + expand_pct)
+        
+        # Convert to contour format for cv2.pointPolygonTest
+        self._contour = expanded.reshape((-1, 1, 2))
         # Compute convex hull to handle any ordering issues
         self._hull = cv2.convexHull(self._contour)
         
@@ -110,6 +122,117 @@ class BlobTracker:
         self._tracks.clear()
 
 
+class StationarySourceFilter:
+    """
+    Detects and filters out stationary IR sources (LEDs, reflections) that remain
+    in roughly the same position for many frames. The real pen should be moving
+    with user input, while spurious sources stay fixed.
+    """
+    
+    def __init__(self, stationary_threshold: float = 8.0, history_frames: int = 30) -> None:
+        """
+        Args:
+            stationary_threshold: Max movement (pixels) for a source to be considered stationary
+            history_frames: Number of frames to track position history
+        """
+        self.stationary_threshold = stationary_threshold
+        self.history_frames = history_frames
+        # Track: {blob_id: (positions_history, total_movement)}
+        self._sources: dict[int, Tuple[List[Tuple[float, float]], float]] = {}
+        self._next_id = 0
+        self._association_radius_sq = 25.0 ** 2  # 25px to match across frames
+        
+    def update_and_filter(self, blobs: List[IrBlob]) -> List[IrBlob]:
+        """
+        Update source tracking and return only blobs that appear to be moving (the pen).
+        Stationary sources are filtered out.
+        """
+        if not blobs:
+            return []
+        
+        # Match blobs to existing tracked sources
+        unmatched_blobs = list(blobs)
+        updated_sources: dict[int, Tuple[List[Tuple[float, float]], float]] = {}
+        stationary_positions: set[Tuple[float, float]] = set()
+        
+        for source_id, (history, total_movement) in self._sources.items():
+            if not history:
+                continue
+            last_pos = history[-1]
+            best_match: IrBlob | None = None
+            best_dist_sq = float('inf')
+            
+            for blob in unmatched_blobs:
+                dx = blob.center[0] - last_pos[0]
+                dy = blob.center[1] - last_pos[1]
+                dist_sq = dx * dx + dy * dy
+                if dist_sq < self._association_radius_sq and dist_sq < best_dist_sq:
+                    best_match = blob
+                    best_dist_sq = dist_sq
+            
+            if best_match is not None:
+                unmatched_blobs.remove(best_match)
+                # Update history
+                new_history = history + [best_match.center]
+                if len(new_history) > self.history_frames:
+                    new_history = new_history[-self.history_frames:]
+                # Calculate total movement over history
+                movement = self._calculate_movement(new_history)
+                updated_sources[source_id] = (new_history, movement)
+                
+                # If stationary for enough frames, mark this position
+                if len(new_history) >= 10 and movement < self.stationary_threshold:
+                    stationary_positions.add((round(best_match.center[0], 0), round(best_match.center[1], 0)))
+        
+        # Create new sources for unmatched blobs
+        for blob in unmatched_blobs:
+            updated_sources[self._next_id] = ([blob.center], 999.0)  # Start with high movement
+            self._next_id += 1
+        
+        self._sources = updated_sources
+        
+        # Filter out stationary blobs
+        moving_blobs = []
+        for blob in blobs:
+            is_stationary = False
+            for source_id, (history, movement) in self._sources.items():
+                if not history:
+                    continue
+                dx = blob.center[0] - history[-1][0]
+                dy = blob.center[1] - history[-1][1]
+                if dx * dx + dy * dy < 4:  # Same blob
+                    if len(history) >= 10 and movement < self.stationary_threshold:
+                        is_stationary = True
+                    break
+            if not is_stationary:
+                moving_blobs.append(blob)
+        
+        return moving_blobs
+    
+    def _calculate_movement(self, history: List[Tuple[float, float]]) -> float:
+        """Calculate total movement distance over position history."""
+        if len(history) < 2:
+            return 999.0
+        total = 0.0
+        for i in range(1, len(history)):
+            dx = history[i][0] - history[i-1][0]
+            dy = history[i][1] - history[i-1][1]
+            total += (dx * dx + dy * dy) ** 0.5
+        return total
+    
+    def get_stationary_sources(self) -> List[Tuple[float, float]]:
+        """Return positions of detected stationary sources for debugging."""
+        stationary = []
+        for source_id, (history, movement) in self._sources.items():
+            if len(history) >= 10 and movement < self.stationary_threshold:
+                stationary.append(history[-1])
+        return stationary
+    
+    def reset(self) -> None:
+        """Clear tracking state."""
+        self._sources.clear()
+
+
 class AdaptiveThreshold:
     """Learns background intensity and produces a dynamic trigger level."""
 
@@ -173,6 +296,10 @@ class Smoother:
         self.factor = factor
         self.max_step = max_step
         self._value: Optional[np.ndarray] = None
+
+    def reset(self) -> None:
+        """Clear smoothing state to prevent drift from stale data."""
+        self._value = None
 
     def update(self, value: tuple[float, float]) -> tuple[float, float]:
         current = np.array(value, dtype=np.float32)

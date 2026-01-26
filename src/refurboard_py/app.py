@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 from .camera import CameraStream, CameraDescriptor, enumerate_devices
-from .calibration import CalibrationError, close_all_overlays, run_calibration
+from .calibration import CalibrationError, close_all_overlays, run_calibration, check_display_setup
 from .config import AppConfig, load_config, save_config
 from .detection import AdaptiveThreshold, BlobTracker, IrBlobDetector, QuadFilter, Smoother
 from .pointer import PointerDriver
@@ -66,6 +66,13 @@ class RefurboardApp:
         self.camera_failed = not self._start_camera()
         self._rebuild_homography()
         self._rebuild_filters()
+        
+        # Check display setup for mirrored mode
+        display_ok, display_msg = check_display_setup()
+        if display_ok:
+            print(f"[Refurboard] {display_msg}")
+        else:
+            print(f"[Refurboard] WARNING: {display_msg}")
         
         # Startup validation
         if self.config.calibration is None:
@@ -147,50 +154,61 @@ class RefurboardApp:
             blobs = self.detector.find_blobs(frame)
             raw_count = len(blobs)
             
-            # Step 1: Filter by learned intensity/area thresholds (if available)
-            calib = self.config.calibration
-            if blobs and calib and calib.learned_intensity_min is not None:
-                blobs = [
-                    b for b in blobs
-                    if calib.learned_intensity_min <= b.intensity <= calib.learned_intensity_max
-                    and calib.learned_area_min <= b.area <= calib.learned_area_max
-                ]
-            elif blobs:
-                # Fallback to basic min_intensity filter
-                min_int = getattr(self.config.detection, "min_intensity", 0)
-                if min_int > 0:
-                    blobs = [b for b in blobs if b.intensity >= min_int]
-            
-            filtered_by_threshold = len(blobs)
-            
-            # Step 2: Filter by camera-space quad (only accept blobs inside calibration region)
+            # Step 1: Filter by camera-space quad (reject blobs outside calibrated region)
             if blobs and self.quad_filter:
                 blobs = self.quad_filter.filter_blobs(blobs)
+            in_quad_count = len(blobs)
             
-            filtered_by_quad = len(blobs)
+            # Step 2: Intensity threshold - use config value (10.0 by default)
+            # This filters ambient IR noise (~2-5) from pen LED (~15+ perpendicular, ~70+ direct)
+            min_int = getattr(self.config.detection, "min_intensity", 10.0)
+            if blobs and min_int > 0:
+                blobs = [b for b in blobs if b.intensity >= min_int]
+            above_threshold_count = len(blobs)
             
-            # Step 3: Require persistence (blob must appear for N consecutive frames)
-            if blobs:
-                blobs = self.blob_tracker.update(blobs)
-            else:
-                self.blob_tracker.update([])  # Clear tracks on empty frame
-            
-            filtered_by_persistence = len(blobs)
+            # Note: Stationary source filtering removed - intensity threshold (min_intensity=10)
+            # already separates pen (intensity 50-100) from background noise (intensity ~3)
+            moving_blobs = blobs
             
             # === POINTER MOVEMENT ===
             click_active = False
             normalized: Tuple[float, float] | None = None
             intensity = 0.0
             
-            if blobs:
-                best = blobs[0]
+            if moving_blobs:
+                # Take brightest MOVING blob as the pen
+                best = max(moving_blobs, key=lambda b: b.intensity)
                 intensity = best.intensity
-                click_active = self.click_threshold.evaluate(best.intensity)
+                cam_x, cam_y = best.center
+                
+                # === DETAILED TRACKING DIAGNOSTIC ===
+                # Show exactly what camera position we're using and where it maps
                 projected = self._project(best.center)
+                if projected and self.config.calibration:
+                    # Calculate expected screen position from projection
+                    origin_x, origin_y = self.config.calibration.screen_origin
+                    scr_w, scr_h = self.config.calibration.screen_size
+                    expected_scr_x = int(origin_x + projected[0] * scr_w)
+                    expected_scr_y = int(origin_y + projected[1] * scr_h)
+                    
+                    # Log camera position and mapping - this helps diagnose axis issues
+                    print(f"[Track] Camera: ({cam_x:.1f}, {cam_y:.1f}) -> Screen: ({expected_scr_x}, {expected_scr_y}), "
+                          f"Normalized: ({projected[0]:.3f}, {projected[1]:.3f}), Int={intensity:.0f}")
+                
+                # Move cursor for any blob that passes our filters
+                click_active = self.click_threshold.evaluate(best.intensity)
                 if projected:
                     normalized = self.smoother.update(projected)
                     if self.config.calibration and not pointer_blocked:
                         self.pointer_driver.move(normalized, self.config.calibration)
+            elif blobs:
+                # We have blobs but they're all stationary - don't reset, just hold position
+                # This prevents jumping when the pen stops moving momentarily
+                pass
+            else:
+                # No valid blobs at all - reset position
+                self.smoother.reset()
+                self.pointer_driver.reset_position()
             
             if pointer_blocked:
                 self.pointer_driver.update_click(False)
@@ -198,13 +216,29 @@ class RefurboardApp:
                 self.pointer_driver.update_click(click_active)
             self._update_telemetry(normalized, intensity, click_active)
             
-            # Debug telemetry every 5 seconds
-            if now - last_debug_time > 5.0:
-                has_calib = self.config.calibration is not None
-                has_homo = self.homography is not None
-                has_quad = self.quad_filter is not None
+            # Debug telemetry every 2 seconds - show what's happening at each stage
+            if now - last_debug_time > 2.0:
                 blocked_reason = "calibrating" if self._calibrating.is_set() else "cooldown" if now < self._pointer_resume_time else "none"
-                print(f"[Tracking] Raw: {raw_count}, Threshold: {filtered_by_threshold}, Quad: {filtered_by_quad}, Persist: {filtered_by_persistence}, Intensity: {intensity:.1f}, Blocked: {blocked_reason}")
+                
+                # Get fresh blob data for detailed diagnostics
+                raw_blobs = self.detector.find_blobs(frame)
+                in_quad = [b for b in raw_blobs if self.quad_filter and self.quad_filter.contains(b.center)]
+                
+                if in_quad:
+                    # Sort by intensity and show top blob
+                    sorted_blobs = sorted(in_quad, key=lambda b: b.intensity, reverse=True)[:5]
+                    top_blob = sorted_blobs[0]
+                    cam_x, cam_y = top_blob.center
+                    
+                    # Show what's happening
+                    tracking_count = len(moving_blobs) if moving_blobs else 0
+                    status = f"TRACKING ({tracking_count})" if tracking_count > 0 else f"FILTERED (int {top_blob.intensity:.0f} < {min_int})"
+                    print(f"[Tracking] InQuad: {len(in_quad)}, Above {min_int:.0f}: {above_threshold_count}, "
+                          f"TopBlob: ({cam_x:.0f},{cam_y:.0f}) int={top_blob.intensity:.0f}, "
+                          f"Status: {status}, Blocked: {blocked_reason}")
+                else:
+                    print(f"[Tracking] No blobs in calibrated region, Blocked: {blocked_reason}")
+                
                 last_debug_time = now
             
             time.sleep(0.01)
@@ -217,14 +251,19 @@ class RefurboardApp:
             self.telemetry.calibration_error = self._calibration_error()
 
     def _project(self, camera_point: Tuple[float, float]) -> Tuple[float, float] | None:
+        """Project camera coordinates to normalized screen coordinates (0-1).
+        
+        In mirrored mode, the homography maps camera coords → local screen coords
+        (relative to 0,0 on primary display), then we normalize to 0-1.
+        """
         if self.homography is None or not self.config.calibration:
             return None
         vec = np.array([[camera_point[0]], [camera_point[1]], [1.0]], dtype=np.float32)
         projected = self.homography @ vec
         projected /= projected[2]
-        origin_x, origin_y = getattr(self.config.calibration, "screen_origin", (0, 0))
-        x = (projected[0][0] - origin_x) / self.config.calibration.screen_size[0]
-        y = (projected[1][0] - origin_y) / self.config.calibration.screen_size[1]
+        # Homography outputs local coords (relative to 0,0), normalize to 0-1
+        x = projected[0][0] / self.config.calibration.screen_size[0]
+        y = projected[1][0] / self.config.calibration.screen_size[1]
         adjusted = self._apply_field_correction(float(x), float(y))
         return adjusted
 
@@ -251,7 +290,7 @@ class RefurboardApp:
             print(f"[Refurboard] QuadFilter initialized with camera quad: {quad}")
         else:
             self.quad_filter = None
-        # Reset tracker when calibration changes
+        # Reset trackers when calibration changes
         self.blob_tracker.reset()
 
     # UI hooks -----------------------------------------------------------------

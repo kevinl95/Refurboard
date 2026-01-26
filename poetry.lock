@@ -241,6 +241,21 @@ files = [
 ]
 
 [[package]]
+name = "dbus-python"
+version = "1.4.0"
+description = "Python bindings for libdbus"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "dbus-python-1.4.0.tar.gz", hash = "sha256:991666e498f60dbf3e49b8b7678f5559b8a65034fdf61aae62cdecdb7d89c770"},
+]
+
+[package.extras]
+doc = ["sphinx", "sphinx_rtd_theme"]
+test = ["tap.py"]
+
+[[package]]
 name = "dearpygui"
 version = "1.11.1"
 description = "DearPyGui: A simple Python GUI Toolkit"
@@ -1273,4 +1288,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.15"
-content-hash = "76887660f2c76cc2fd999b930b66aa70928b011c709e85e3465168ebd4e93e95"
+content-hash = "1ab939fb1b259e36b9e7626d270186be96ad3c33a5089fb25a01f739f532093f"

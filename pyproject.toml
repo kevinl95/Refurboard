@@ -20,6 +20,7 @@ Pillow = "^10.2.0"
 screeninfo = "^0.8.1"
 pyobjc-core = { version = "^10.3", markers = "platform_system == 'Darwin'" }
 pyobjc-framework-Quartz = { version = "^10.3", markers = "platform_system == 'Darwin'" }
+dbus-python = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
