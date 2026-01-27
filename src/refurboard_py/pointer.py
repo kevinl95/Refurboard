@@ -76,26 +76,54 @@ class _PynputBackend:
 
 
 class _LinuxBackend(_PynputBackend):
-    """Linux backend using ydotool for Wayland cursor control.
+    """Linux backend using uinput for direct Wayland cursor control.
     
-    Uses RELATIVE movements to avoid mouse acceleration issues with absolute mode.
-    ydotool's absolute mode requires disabling mouse acceleration, which we don't
-    want to force on users. We track position internally since pynput cannot read
-    cursor position on Wayland.
+    Creates a virtual absolute pointing device via evdev/uinput for pixel-perfect
+    cursor placement on Wayland. This bypasses ydotool subprocess overhead and
+    provides more reliable cursor control.
     """
     
     def __init__(self) -> None:
         super().__init__()
-        self._has_ydotool = self._check_ydotool()
-        self._last_x: Optional[int] = None
-        self._last_y: Optional[int] = None
-        if self._has_ydotool:
-            print("[Pointer] Using Linux ydotool backend (relative mode)")
-        else:
-            print("[Pointer] ydotool not found, falling back to pynput (may not work on Wayland)")
+        self._uinput_device = None
+        self._screen_width = 1920  # Will be updated from calibration
+        self._screen_height = 1080
+        self._setup_uinput()
 
-    def _check_ydotool(self) -> bool:
-        """Check if ydotool is available."""
+    def _setup_uinput(self) -> None:
+        """Set up a virtual absolute pointing device via uinput."""
+        try:
+            import evdev
+            from evdev import UInput, AbsInfo, ecodes
+            
+            # Define absolute axes with screen resolution
+            # ABS_X and ABS_Y with range 0 to screen size
+            cap = {
+                ecodes.EV_ABS: [
+                    (ecodes.ABS_X, AbsInfo(value=0, min=0, max=self._screen_width, fuzz=0, flat=0, resolution=0)),
+                    (ecodes.ABS_Y, AbsInfo(value=0, min=0, max=self._screen_height, fuzz=0, flat=0, resolution=0)),
+                ],
+                ecodes.EV_KEY: [
+                    ecodes.BTN_LEFT,
+                    ecodes.BTN_RIGHT,
+                    ecodes.BTN_MIDDLE,
+                ],
+            }
+            
+            self._uinput_device = UInput(cap, name='refurboard-pointer', vendor=0x1234, product=0x5678)
+            self._ecodes = ecodes
+            print(f"[Pointer] Created uinput absolute pointer device: {self._uinput_device.device.path}")
+            
+        except PermissionError as e:
+            print(f"[Pointer] uinput permission denied: {e}")
+            print("[Pointer] Try: sudo chmod 666 /dev/uinput OR add user to 'input' group")
+            self._uinput_device = None
+        except Exception as e:
+            print(f"[Pointer] uinput setup failed: {e}, will try ydotool fallback")
+            self._uinput_device = None
+
+    def _has_ydotool(self) -> bool:
+        """Check if ydotool is available as fallback."""
         try:
             result = subprocess.run(
                 ['which', 'ydotool'],
@@ -108,100 +136,81 @@ class _LinuxBackend(_PynputBackend):
             return False
 
     def move(self, x: int, y: int) -> None:
-        """Move cursor using ydotool RELATIVE positioning.
-        
-        We use relative mode because absolute mode requires disabling mouse
-        acceleration globally, which affects normal mouse use. Position is
-        tracked internally since pynput cannot read cursor position on Wayland.
-        """
-        if not self._has_ydotool:
-            super().move(x, y)
-            return
-        
-        # First move - establish cursor at the correct position
-        # Since we can't know where cursor currently is on Wayland, we reset to (0,0)
-        # by moving a large negative delta, then move to our target position
-        if self._last_x is None or self._last_y is None:
-            print(f"[Pointer] First detection at ({x}, {y}) - resetting cursor position")
+        """Move cursor using uinput absolute positioning."""
+        if self._uinput_device is not None:
             try:
-                # Move far negative to ensure we hit (0,0) regardless of current position
-                # Most screens are under 8K resolution, so -10000 should be enough
-                subprocess.run(
-                    ['ydotool', 'mousemove', '-x', '-10000', '-y', '-10000'],
-                    check=False, capture_output=True, timeout=0.1,
-                )
-                # Small delay to ensure the reset takes effect
-                time.sleep(0.01)
-                # Now move to the actual target position from (0,0)
-                result = subprocess.run(
-                    ['ydotool', 'mousemove', '-x', str(x), '-y', str(y)],
-                    check=False, capture_output=True, timeout=0.1,
-                )
-                if result.returncode == 0:
-                    self._last_x = x
-                    self._last_y = y
-                    print(f"[Pointer] Cursor initialized at ({x}, {y})")
-                else:
-                    print(f"[Pointer] Failed to initialize cursor position")
+                ecodes = self._ecodes
+                # Write absolute X and Y coordinates
+                self._uinput_device.write(ecodes.EV_ABS, ecodes.ABS_X, x)
+                self._uinput_device.write(ecodes.EV_ABS, ecodes.ABS_Y, y)
+                self._uinput_device.syn()
+                return
             except Exception as e:
-                print(f"[Pointer] Error initializing cursor: {e}")
-            return
+                print(f"[Pointer] uinput write failed: {e}")
         
-        # Calculate delta from our tracked position
-        dx = x - self._last_x
-        dy = y - self._last_y
+        # Fallback to ydotool
+        if self._has_ydotool():
+            try:
+                subprocess.run(
+                    ['ydotool', 'mousemove', '--absolute', '-x', str(x), '-y', str(y)],
+                    check=False, capture_output=True, timeout=0.1,
+                )
+                return
+            except Exception:
+                pass
         
-        # Skip tiny movements (jitter suppression)
-        if abs(dx) <= 1 and abs(dy) <= 1:
-            return
-        
-        try:
-            # Use relative movement (no --absolute flag)
-            result = subprocess.run(
-                ['ydotool', 'mousemove', '-x', str(dx), '-y', str(dy)],
-                check=False,
-                capture_output=True,
-                timeout=0.1,
-            )
-            if result.returncode == 0:
-                self._last_x = x
-                self._last_y = y
-            else:
-                stderr = result.stderr.decode('utf-8', errors='ignore').strip()
-                print(f"[Pointer] ydotool failed: {stderr}")
-                # Fallback to pynput
-                super().move(x, y)
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
-            print(f"[Pointer] ydotool failed: {e}, using pynput")
-            super().move(x, y)
+        # Final fallback to pynput
+        super().move(x, y)
 
     def press(self, x: int, y: int) -> None:
         """Press at position."""
         self.move(x, y)
-        if self._has_ydotool:
+        if self._uinput_device is not None:
             try:
-                subprocess.run(
-                    ['ydotool', 'click', '0xC0'], # Left button down
-                    check=False, capture_output=True, timeout=0.1
-                )
+                ecodes = self._ecodes
+                self._uinput_device.write(ecodes.EV_KEY, ecodes.BTN_LEFT, 1)
+                self._uinput_device.syn()
+                return
             except Exception:
-                super().press(x, y)
-        else:
-            super().press(x, y)
+                pass
+        
+        if self._has_ydotool():
+            try:
+                subprocess.run(['ydotool', 'click', '0xC0'], check=False, capture_output=True, timeout=0.1)
+                return
+            except Exception:
+                pass
+        
+        super().press(x, y)
 
     def release(self, x: int, y: int) -> None:
         """Release at position."""
         self.move(x, y)
-        if self._has_ydotool:
+        if self._uinput_device is not None:
             try:
-                subprocess.run(
-                    ['ydotool', 'click', '0xC1'], # Left button up
-                    check=False, capture_output=True, timeout=0.1
-                )
+                ecodes = self._ecodes
+                self._uinput_device.write(ecodes.EV_KEY, ecodes.BTN_LEFT, 0)
+                self._uinput_device.syn()
+                return
             except Exception:
-                super().release(x, y)
-        else:
-            super().release(x, y)
+                pass
+        
+        if self._has_ydotool():
+            try:
+                subprocess.run(['ydotool', 'click', '0xC1'], check=False, capture_output=True, timeout=0.1)
+                return
+            except Exception:
+                pass
+        
+        super().release(x, y)
+    
+    def __del__(self):
+        """Clean up uinput device."""
+        if self._uinput_device is not None:
+            try:
+                self._uinput_device.close()
+            except Exception:
+                pass
 
 
 class _MacBackend:
@@ -306,8 +315,12 @@ class PointerDriver:
         return _PynputBackend()
 
     def reset_position(self) -> None:
-        """Clear the last known position so the next pen detection starts fresh."""
-        self._last_target = None
+        """Clear tracking state so the next pen detection starts fresh.
+        
+        Note: We keep _last_target so mouse up events go to the last known position,
+        not (0,0). Only reset the deadzone counter.
+        """
+        # Don't reset _last_target - keep it for proper mouse up position
         self._deadzone_skips = 0
 
     def move(self, normalized: Tuple[float, float], calibration: CalibrationProfile) -> None:
@@ -369,6 +382,7 @@ class PointerDriver:
         now = time.time()
         target_x, target_y = self._last_target or (0, 0)
         if pressed and not self._click_active:
+            print(f"[Pointer] MOUSE DOWN at ({target_x}, {target_y})")
             try:
                 self._backend.press(target_x, target_y)
             except Exception as exc:
@@ -378,8 +392,10 @@ class PointerDriver:
             self._click_active = True
             self._click_started = now
         elif not pressed and self._click_active:
+            print(f"[Pointer] MOUSE UP at ({target_x}, {target_y})")
             self._backend.release(target_x, target_y)
             self._click_active = False
         elif self._click_active and ((now - self._click_started) * 1000) >= self.click_hold_ms:
+            print(f"[Pointer] MOUSE UP (timeout) at ({target_x}, {target_y})")
             self._backend.release(target_x, target_y)
             self._click_active = False

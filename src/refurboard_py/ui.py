@@ -20,11 +20,6 @@ QUAD_CANVAS = "refurboard_quad_canvas"
 CAMERA_COMBO = "refurboard_camera_combo"
 SENSITIVITY_SLIDER = "refurboard_sensitivity"
 HYSTERESIS_SLIDER = "refurboard_hysteresis"
-FOV_SLIDER = "refurboard_fov"
-GAIN_TL = "refurboard_gain_tl"
-GAIN_TR = "refurboard_gain_tr"
-GAIN_BR = "refurboard_gain_br"
-GAIN_BL = "refurboard_gain_bl"
 
 VIEWPORT_WIDTH = 560
 VIEWPORT_HEIGHT = 1024
@@ -139,64 +134,6 @@ def _build_controls(app: RefurboardApp) -> None:
         callback=_on_hysteresis_changed,
         user_data=app,
     )
-    dpg.add_spacer(height=12)
-    dpg.add_text("FoV / Corner Gain", color=(230, 230, 230))
-    dpg.add_slider_float(
-        tag=FOV_SLIDER,
-        width=CONTROL_WIDTH,
-        min_value=0.8,
-        max_value=1.25,
-        default_value=getattr(app.config.detection, "fov_scale", 1.0),
-        format="FoV scale: %.3f",
-        callback=_on_fov_changed,
-        user_data=app,
-    )
-    with dpg.group(horizontal=True):
-        dpg.add_slider_float(
-            tag=GAIN_TL,
-            label="TL",
-            width=int(CONTROL_WIDTH / 2 - 8),
-            min_value=0.8,
-            max_value=1.25,
-            default_value=app.config.detection.corner_gain.get("top_left", 1.0),
-            format="%.3f",
-            callback=_on_gain_changed,
-            user_data=(app, "top_left"),
-        )
-        dpg.add_slider_float(
-            tag=GAIN_TR,
-            label="TR",
-            width=int(CONTROL_WIDTH / 2 - 8),
-            min_value=0.8,
-            max_value=1.25,
-            default_value=app.config.detection.corner_gain.get("top_right", 1.0),
-            format="%.3f",
-            callback=_on_gain_changed,
-            user_data=(app, "top_right"),
-        )
-    with dpg.group(horizontal=True):
-        dpg.add_slider_float(
-            tag=GAIN_BL,
-            label="BL",
-            width=int(CONTROL_WIDTH / 2 - 8),
-            min_value=0.8,
-            max_value=1.25,
-            default_value=app.config.detection.corner_gain.get("bottom_left", 1.0),
-            format="%.3f",
-            callback=_on_gain_changed,
-            user_data=(app, "bottom_left"),
-        )
-        dpg.add_slider_float(
-            tag=GAIN_BR,
-            label="BR",
-            width=int(CONTROL_WIDTH / 2 - 8),
-            min_value=0.8,
-            max_value=1.25,
-            default_value=app.config.detection.corner_gain.get("bottom_right", 1.0),
-            format="%.3f",
-            callback=_on_gain_changed,
-            user_data=(app, "bottom_right"),
-        )
     dpg.add_spacer(height=20)
     dpg.add_button(
         label="Start Calibration",
@@ -293,29 +230,6 @@ def _on_hysteresis_changed(sender, app_data, user_data: RefurboardApp | None) ->
     except (TypeError, ValueError):
         return
     user_data.update_hysteresis(value)
-
-
-def _on_fov_changed(sender, app_data, user_data: RefurboardApp | None) -> None:
-    if user_data is None:
-        return
-    try:
-        value = float(app_data)
-    except (TypeError, ValueError):
-        return
-    user_data.update_fov_scale(value)
-
-
-def _on_gain_changed(sender, app_data, user_data) -> None:
-    if not isinstance(user_data, tuple) or len(user_data) != 2:
-        return
-    app, corner = user_data
-    if app is None:
-        return
-    try:
-        value = float(app_data)
-    except (TypeError, ValueError):
-        return
-    app.update_corner_gain(corner, value)
 
 
 def _refresh_cameras(app: RefurboardApp) -> None:

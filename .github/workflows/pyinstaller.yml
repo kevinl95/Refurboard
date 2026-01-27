@@ -40,13 +40,15 @@ jobs:
           path: .venv
           key: pyinstaller-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libgirepository1.0-dev pkg-config python3-tk
+
       - name: Install dependencies
         run: poetry install --no-interaction --with dev
         shell: bash
-
-      - name: Ensure Tk support (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
 
       - name: Build executable
         run: poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py

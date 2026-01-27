@@ -461,37 +461,21 @@ def get_primary_display() -> ScreenBounds:
     
     # Find all monitors at origin (0,0) - these are mirrored
     mirrored = [(idx, m) for idx, m in enumerate(monitors) if m.x == 0 and m.y == 0]
-    
+
     if not mirrored:
-        # No monitor at origin, use the first one
-        monitor = monitors[0]
-        name = getattr(monitor, "name", "primary") or "primary"
-        print(f"[Calibration] No monitor at origin; using '{name}' at ({monitor.x},{monitor.y})")
-        return ScreenBounds(
-            width=monitor.width,
-            height=monitor.height,
-            origin=(0, 0),
-            monitor_name=name,
-            monitor_index=0,
-        )
-    
+        # No monitor at origin, force fallback to (0,0) 1920x1080 and warn
+        print("[Calibration] WARNING: No mirrored display at (0,0) detected. Forcing 1920x1080 at (0,0) named 'mirrored'.")
+        return ScreenBounds(width=1920, height=1080, origin=(0, 0), monitor_name="mirrored", monitor_index=0)
+
     # Use the smallest mirrored display (visible on all mirrored screens)
     smallest_idx, smallest = min(mirrored, key=lambda x: x[1].width * x[1].height)
-    name = getattr(smallest, "name", "primary") or "primary"
-    
-    if len(mirrored) > 1:
-        names = [getattr(m, "name", "?") for _, m in mirrored]
-        print(f"[Calibration] Mirrored displays at (0,0): {names}")
-        print(f"[Calibration] Using smallest: '{name}' {smallest.width}x{smallest.height}")
-    else:
-        print(f"[Calibration] Primary display: '{name}' at (0,0), size {smallest.width}x{smallest.height}")
-    
+    print(f"[Calibration] Using mirrored display at (0,0): '{getattr(smallest, 'name', 'mirrored')}' {smallest.width}x{smallest.height}")
     return ScreenBounds(
         width=smallest.width,
         height=smallest.height,
         origin=(0, 0),
-        monitor_name=name,
-        monitor_index=smallest_idx,
+        monitor_name="mirrored",
+        monitor_index=0,
     )
 
 
@@ -520,7 +504,7 @@ def run_calibration(
     calibration_points: List[CalibrationPoint] = []
     collected_data: List[CollectedPointData] = []
     # Require bright pen LED (intensity ~70-100), not ambient IR reflections (~3)
-    min_intensity = getattr(config.detection, "min_intensity", 40.0)
+    min_intensity = getattr(config.detection, "min_intensity", 4.0)
 
     try:
         for index, (name, normalized) in enumerate(TARGET_ORDER, start=1):

@@ -159,9 +159,9 @@ class RefurboardApp:
                 blobs = self.quad_filter.filter_blobs(blobs)
             in_quad_count = len(blobs)
             
-            # Step 2: Intensity threshold - use config value (10.0 by default)
-            # This filters ambient IR noise (~2-5) from pen LED (~15+ perpendicular, ~70+ direct)
-            min_int = getattr(self.config.detection, "min_intensity", 10.0)
+            # Step 2: Intensity threshold - use config value (3.5 by default)
+            # This filters ambient IR noise (~2-3) from pen LED (~5+ at angle, ~70+ direct)
+            min_int = getattr(self.config.detection, "min_intensity", 3.5)
             if blobs and min_int > 0:
                 blobs = [b for b in blobs if b.intensity >= min_int]
             above_threshold_count = len(blobs)
@@ -176,31 +176,33 @@ class RefurboardApp:
             intensity = 0.0
             
             if moving_blobs:
-                # Take brightest MOVING blob as the pen
+                # Take brightest blob as the pen
                 best = max(moving_blobs, key=lambda b: b.intensity)
                 intensity = best.intensity
                 cam_x, cam_y = best.center
                 
-                # === DETAILED TRACKING DIAGNOSTIC ===
-                # Show exactly what camera position we're using and where it maps
+                # Log tracking (reduced frequency - only when moving significantly)
                 projected = self._project(best.center)
                 if projected and self.config.calibration:
-                    # Calculate expected screen position from projection
                     origin_x, origin_y = self.config.calibration.screen_origin
                     scr_w, scr_h = self.config.calibration.screen_size
                     expected_scr_x = int(origin_x + projected[0] * scr_w)
                     expected_scr_y = int(origin_y + projected[1] * scr_h)
-                    
-                    # Log camera position and mapping - this helps diagnose axis issues
-                    print(f"[Track] Camera: ({cam_x:.1f}, {cam_y:.1f}) -> Screen: ({expected_scr_x}, {expected_scr_y}), "
-                          f"Normalized: ({projected[0]:.3f}, {projected[1]:.3f}), Int={intensity:.0f}")
+                    print(f"[Track] ({expected_scr_x}, {expected_scr_y}) Int={intensity:.0f}")
                 
-                # Move cursor for any blob that passes our filters
-                click_active = self.click_threshold.evaluate(best.intensity)
                 if projected:
-                    normalized = self.smoother.update(projected)
-                    if self.config.calibration and not pointer_blocked:
-                        self.pointer_driver.move(normalized, self.config.calibration)
+                    # smoother.update() returns None during reacquisition (after reset)
+                    # This prevents cursor jumping to reflections when pen reappears
+                    smoothed = self.smoother.update(projected)
+                    if smoothed is not None:
+                        normalized = smoothed
+                        # Only click when we have stable tracking (not during reacquisition)
+                        click_active = True
+                        if self.config.calibration and not pointer_blocked:
+                            self.pointer_driver.move(normalized, self.config.calibration)
+                    else:
+                        # Reacquisition in progress - don't move or click yet
+                        print(f"[Track] Reacquiring... Int={intensity:.0f}")
             elif blobs:
                 # We have blobs but they're all stationary - don't reset, just hold position
                 # This prevents jumping when the pen stops moving momentarily

@@ -292,20 +292,58 @@ class IrBlobDetector:
 
 
 class Smoother:
-    def __init__(self, factor: float, max_step: float | None = None) -> None:
+    def __init__(self, factor: float, max_step: float | None = None, reacquire_frames: int = 3) -> None:
         self.factor = factor
         self.max_step = max_step
+        self.reacquire_frames = reacquire_frames  # Frames needed to trust new position after reset
         self._value: Optional[np.ndarray] = None
+        self._candidate: Optional[np.ndarray] = None  # Candidate position during reacquisition
+        self._candidate_frames: int = 0
+        self._reacquire_radius: float = 0.15  # Max normalized movement (15% of screen) to count as stable
 
     def reset(self) -> None:
         """Clear smoothing state to prevent drift from stale data."""
         self._value = None
+        self._candidate = None
+        self._candidate_frames = 0
 
-    def update(self, value: tuple[float, float]) -> tuple[float, float]:
+    def update(self, value: tuple[float, float]) -> tuple[float, float] | None:
+        """
+        Update smoother with new position.
+        Returns smoothed position, or None if reacquisition is in progress.
+        """
         current = np.array(value, dtype=np.float32)
+        
         if self._value is None:
-            self._value = current
+            # Reacquisition mode: pen was lost, need stable position before trusting
+            if self._candidate is None:
+                # First frame after reset - start tracking candidate
+                self._candidate = current
+                self._candidate_frames = 1
+                return None  # Don't move cursor yet
+            else:
+                # Check if new position is close to candidate
+                dist = float(np.linalg.norm(current - self._candidate))
+                if dist < self._reacquire_radius:
+                    # Position is stable, increment counter
+                    self._candidate_frames += 1
+                    # Update candidate with average
+                    self._candidate = 0.7 * self._candidate + 0.3 * current
+                    
+                    if self._candidate_frames >= self.reacquire_frames:
+                        # Stable for enough frames - accept position
+                        self._value = self._candidate
+                        self._candidate = None
+                        self._candidate_frames = 0
+                        return float(self._value[0]), float(self._value[1])
+                    return None  # Still waiting for stability
+                else:
+                    # Position jumped - restart candidate tracking
+                    self._candidate = current
+                    self._candidate_frames = 1
+                    return None
         else:
+            # Normal tracking mode
             prev = self._value
             blended = (1 - self.factor) * self._value + self.factor * current
             if self.max_step is not None:
@@ -315,4 +353,7 @@ class Smoother:
                     delta *= self.max_step / step
                     blended = prev + delta
             self._value = blended
-        return float(self._value[0]), float(self._value[1])
+            # Reset candidate tracking since we have good lock
+            self._candidate = None
+            self._candidate_frames = 0
+            return float(self._value[0]), float(self._value[1])

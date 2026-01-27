@@ -64,16 +64,16 @@ class CameraSettings:
 class DetectionSettings:
     sensitivity: float = 0.65
     hysteresis: float = 0.15
-    smoothing: float = 0.25
+    # Smoothing factor: 0.0 = no response, 1.0 = no smoothing (instant).
+    # Higher values (0.8+) give responsive cursor, lower values cause lag.
+    smoothing: float = 0.85
     # Cap how much the normalized pointer is allowed to move per frame to tame jittery jumps.
-    max_step: float = 0.18
+    max_step: float = 0.35
     click_hold_ms: int = 120
     min_blob_area: int = 5
     max_blob_area: int = 500
     min_move_px: int = 2
-    # Minimum blob intensity to accept - filters ambient IR reflections (~3-4) from pen LED side-brightness (~10-30)
-    # Set to 10 to reliably detect corners where LED angle is poorest
-    min_intensity: float = 10.0
+    min_intensity: float = 5.0
     fov_scale: float = 1.0
     corner_gain: Dict[str, float] = field(
         default_factory=lambda: {
