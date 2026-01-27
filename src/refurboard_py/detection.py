@@ -315,6 +315,12 @@ class Smoother:
         current = np.array(value, dtype=np.float32)
         
         if self._value is None:
+            # Check if reacquisition is disabled
+            if self.reacquire_frames <= 0:
+                # No reacquisition - accept immediately
+                self._value = current
+                return float(self._value[0]), float(self._value[1])
+            
             # Reacquisition mode: pen was lost, need stable position before trusting
             if self._candidate is None:
                 # First frame after reset - start tracking candidate

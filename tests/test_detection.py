@@ -22,7 +22,8 @@ def test_adaptive_threshold_hysteresis_behavior():
 
 
 def test_smoother_exponential_decay():
-    smoother = Smoother(factor=0.25)
+    # Disable reacquisition filter (reacquire_frames=0) to test pure smoothing
+    smoother = Smoother(factor=0.25, reacquire_frames=0)
 
     # First update should echo the sample
     assert smoother.update((0.0, 0.0)) == (0.0, 0.0)
