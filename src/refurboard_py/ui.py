@@ -142,10 +142,10 @@ def _build_controls(app: RefurboardApp) -> None:
         callback=lambda: app.run_calibration(),
     )
     dpg.add_spacer(height=24)
-    dpg.add_text("Calibration Accuracy", color=(230, 230, 230))
+    dpg.add_text("Calibration Quality", color=(230, 230, 230))
     dpg.add_text("Not calibrated", tag=ACCURACY_TEXT, wrap=CONTROL_WIDTH)
     dpg.add_spacer(height=12)
-    dpg.add_text("Quadrilateral Preview", color=(230, 230, 230))
+    dpg.add_text("Calibration Preview", color=(230, 230, 230))
     with dpg.drawlist(width=CANVAS_WIDTH, height=CANVAS_HEIGHT, tag=QUAD_CANVAS):
         pass
     dpg.add_spacer(height=24)
@@ -255,7 +255,17 @@ def _refresh_status(app: RefurboardApp) -> None:
     if error is None:
         dpg.set_value(ACCURACY_TEXT, "Not calibrated")
     else:
-        dpg.set_value(ACCURACY_TEXT, f"{error:.2f}px RMS")
+        # Convert RMS error to user-friendly quality rating
+        # Lower error = better quality
+        if error < 2.0:
+            quality = "Excellent"
+        elif error < 5.0:
+            quality = "Good"
+        elif error < 10.0:
+            quality = "Fair - consider recalibrating"
+        else:
+            quality = "Poor - please recalibrate"
+        dpg.set_value(ACCURACY_TEXT, quality)
     _update_quad_canvas(app)
 
 
