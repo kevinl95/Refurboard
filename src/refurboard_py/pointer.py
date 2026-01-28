@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, Protocol, Tuple
+import math
 import time
 import platform
 import subprocess
@@ -283,9 +284,10 @@ class _WindowsBackend:
 
 
 class PointerDriver:
-    def __init__(self, click_hold_ms: int, min_move_px: int = 5) -> None:
+    def __init__(self, click_hold_ms: int, min_move_px: int = 5, interpolate_px: int = 8) -> None:
         self.click_hold_ms = click_hold_ms
         self.min_move_px = min_move_px
+        self.interpolate_px = interpolate_px  # Max pixels between interpolated points when drawing
         self._click_active = False
         self._click_started = 0.0
         self._last_target: Optional[Tuple[int, int]] = None
@@ -323,6 +325,32 @@ class PointerDriver:
         # Don't reset _last_target - keep it for proper mouse up position
         self._deadzone_skips = 0
 
+    def _interpolate_move(self, from_x: int, from_y: int, to_x: int, to_y: int) -> None:
+        """Emit intermediate cursor moves between two points for smooth drawing.
+        
+        When drawing (mouse down), large jumps create dots instead of lines.
+        This emits points along the path so paint programs register a continuous stroke.
+        """
+        dx = to_x - from_x
+        dy = to_y - from_y
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance <= self.interpolate_px:
+            # Short distance - single move is fine
+            self._backend.move(to_x, to_y)
+            return
+        
+        # Calculate number of intermediate points
+        num_steps = int(math.ceil(distance / self.interpolate_px))
+        
+        for i in range(1, num_steps + 1):
+            t = i / num_steps
+            ix = int(from_x + dx * t)
+            iy = int(from_y + dy * t)
+            self._backend.move(ix, iy)
+        
+        print(f"[Pointer] Interpolated {num_steps} points from ({from_x}, {from_y}) to ({to_x}, {to_y})")
+
     def move(self, normalized: Tuple[float, float], calibration: CalibrationProfile) -> None:
         """Move cursor to position. In mirrored mode, coords are relative to primary display (0,0)."""
         width, height = calibration.screen_size
@@ -353,7 +381,11 @@ class PointerDriver:
         distance_sq = dx * dx + dy * dy
         if distance_sq > self.min_move_px * self.min_move_px:
             try:
-                self._backend.move(x, y)
+                # When mouse is down (drawing), interpolate large movements for smooth strokes
+                if self._click_active and distance_sq > self.interpolate_px * self.interpolate_px:
+                    self._interpolate_move(self._last_target[0], self._last_target[1], x, y)
+                else:
+                    self._backend.move(x, y)
             except Exception as exc:
                 print(f"[Pointer] Backend move failed: {exc}. Falling back to pynput")
                 self._backend = _PynputBackend()
@@ -391,11 +423,13 @@ class PointerDriver:
                 self._backend.press(target_x, target_y)
             self._click_active = True
             self._click_started = now
+        elif pressed and self._click_active:
+            # Pen is still being tracked - refresh the click timer to prevent timeout
+            self._click_started = now
         elif not pressed and self._click_active:
-            print(f"[Pointer] MOUSE UP at ({target_x}, {target_y})")
-            self._backend.release(target_x, target_y)
-            self._click_active = False
-        elif self._click_active and ((now - self._click_started) * 1000) >= self.click_hold_ms:
-            print(f"[Pointer] MOUSE UP (timeout) at ({target_x}, {target_y})")
-            self._backend.release(target_x, target_y)
-            self._click_active = False
+            # Pen lost - check if we should release immediately or wait for timeout
+            if ((now - self._click_started) * 1000) >= self.click_hold_ms:
+                print(f"[Pointer] MOUSE UP (timeout) at ({target_x}, {target_y})")
+                self._backend.release(target_x, target_y)
+                self._click_active = False
+            # else: keep click active, waiting for timeout (prevents spurious releases)
