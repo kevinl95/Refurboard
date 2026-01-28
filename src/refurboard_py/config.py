@@ -77,7 +77,7 @@ class DetectionSettings:
     min_blob_area: int = 5
     max_blob_area: int = 500
     min_move_px: int = 2
-    min_intensity: float = 5.0
+    min_intensity: float = 3.5
     fov_scale: float = 1.0
     corner_gain: Dict[str, float] = field(
         default_factory=lambda: {
