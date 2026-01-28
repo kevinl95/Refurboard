@@ -355,15 +355,6 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
             fill="#FFFFFF",
             font=("Helvetica", header_size, "bold"),
         )
-        # Add warning about mirrored display
-        warning_y = header_y + header_size + 8
-        canvas.create_text(
-            bounds.width / 2,
-            warning_y,
-            text="(Calibrate on the MIRRORED/PROJECTED display!)",
-            fill="#FF8800",
-            font=("Helvetica", max(10, body_size - 2)),
-        )
         canvas.create_text(
             bounds.width / 2,
             footer_y,

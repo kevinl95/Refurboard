@@ -12,7 +12,7 @@ import numpy as np
 from .camera import CameraStream, CameraDescriptor, enumerate_devices
 from .calibration import CalibrationError, close_all_overlays, run_calibration, check_display_setup
 from .config import AppConfig, load_config, save_config
-from .detection import AdaptiveThreshold, BlobTracker, IrBlobDetector, QuadFilter, Smoother
+from .detection import AdaptiveThreshold, BlobTracker, IrBlobDetector, OneEuroFilter, QuadFilter, Smoother
 from .pointer import PointerDriver
 from . import ui
 
@@ -36,9 +36,10 @@ class RefurboardApp:
             sensitivity=self.config.detection.sensitivity,
             hysteresis=self.config.detection.hysteresis,
         )
-        self.smoother = Smoother(
-            self.config.detection.smoothing,
-            max_step=getattr(self.config.detection, "max_step", None),
+        # One-Euro Filter for smooth, low-latency drawing
+        self.smoother = OneEuroFilter(
+            min_cutoff=getattr(self.config.detection, "filter_min_cutoff", 1.0),
+            beta=getattr(self.config.detection, "filter_beta", 0.007),
         )
         self.pointer_driver = PointerDriver(
             click_hold_ms=self.config.detection.click_hold_ms,
@@ -357,6 +358,7 @@ class RefurboardApp:
         with self.camera_lock:
             stream = self.camera_stream
         if stream is None:
+            print("[Refurboard] Cannot start calibration: no camera stream. Select a camera first.")
             self._calibration_thread = None
             return
         self._calibrating.set()

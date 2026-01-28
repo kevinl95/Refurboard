@@ -291,15 +291,149 @@ class IrBlobDetector:
         return blobs
 
 
+class OneEuroFilter:
+    """
+    One-Euro Filter for smooth, low-latency pointer tracking.
+    
+    Automatically adapts filtering based on movement speed:
+    - Slow movement → heavy filtering (removes jitter)
+    - Fast movement → light filtering (responsive, low latency)
+    
+    Reference: Casiez et al. "1€ Filter: A Simple Speed-based Low-pass Filter
+    for Noisy Input in Interactive Systems" (CHI 2012)
+    """
+    
+    def __init__(
+        self,
+        min_cutoff: float = 1.0,
+        beta: float = 0.007,
+        d_cutoff: float = 1.0,
+        reacquire_frames: int = 1,
+        reacquire_radius: float = 0.25,
+    ) -> None:
+        """
+        Args:
+            min_cutoff: Minimum cutoff frequency in Hz. Lower = more smoothing
+                        at low speeds. Try 0.5-2.0 for drawing.
+            beta: Speed coefficient. Higher = less lag at high speeds.
+                  Try 0.001-0.01 for drawing.
+            d_cutoff: Cutoff frequency for derivative estimation.
+            reacquire_frames: Frames needed to trust position after pen lost.
+                              1 = immediate (good for drawing), 3+ = strict (filters reflections)
+            reacquire_radius: Max normalized movement (0-1) to count as stable.
+                              0.25 = 25% of screen diagonal movement allowed.
+        """
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.reacquire_frames = reacquire_frames
+        self.reacquire_radius = reacquire_radius
+        
+        # State
+        self._x: Optional[np.ndarray] = None  # Filtered position
+        self._dx: Optional[np.ndarray] = None  # Filtered derivative
+        self._last_time: Optional[float] = None
+        
+        # Reacquisition state
+        self._candidate: Optional[np.ndarray] = None
+        self._candidate_frames: int = 0
+    
+    def reset(self) -> None:
+        """Clear filter state when pen is lost."""
+        self._x = None
+        self._dx = None
+        self._last_time = None
+        self._candidate = None
+        self._candidate_frames = 0
+    
+    def _smoothing_factor(self, cutoff: float, dt: float) -> float:
+        """Compute exponential smoothing factor from cutoff frequency."""
+        tau = 1.0 / (2.0 * np.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+    
+    def update(
+        self, value: tuple[float, float], timestamp: float | None = None
+    ) -> tuple[float, float] | None:
+        """
+        Filter a new position sample.
+        
+        Args:
+            value: Raw (x, y) position in normalized coords [0, 1].
+            timestamp: Time in seconds. If None, assumes 60fps.
+        
+        Returns:
+            Filtered (x, y) position, or None during reacquisition.
+        """
+        import time
+        
+        current = np.array(value, dtype=np.float64)
+        now = timestamp if timestamp is not None else time.perf_counter()
+        
+        if self._x is None:
+            # Reacquisition mode
+            if self.reacquire_frames <= 0:
+                # Disabled - accept immediately
+                self._x = current
+                self._dx = np.zeros(2, dtype=np.float64)
+                self._last_time = now
+                return float(self._x[0]), float(self._x[1])
+            
+            if self._candidate is None:
+                self._candidate = current
+                self._candidate_frames = 1
+                self._last_time = now
+                return None
+            
+            dist = float(np.linalg.norm(current - self._candidate))
+            if dist < self.reacquire_radius:
+                self._candidate_frames += 1
+                self._candidate = 0.7 * self._candidate + 0.3 * current
+                
+                if self._candidate_frames >= self.reacquire_frames:
+                    self._x = self._candidate
+                    self._dx = np.zeros(2, dtype=np.float64)
+                    self._candidate = None
+                    self._candidate_frames = 0
+                    self._last_time = now
+                    return float(self._x[0]), float(self._x[1])
+                return None
+            else:
+                self._candidate = current
+                self._candidate_frames = 1
+                return None
+        
+        # Normal filtering
+        dt = now - self._last_time if self._last_time else 1.0 / 60.0
+        dt = max(dt, 1e-6)  # Prevent division by zero
+        self._last_time = now
+        
+        # Estimate derivative (velocity)
+        dx = (current - self._x) / dt
+        
+        # Filter the derivative
+        alpha_d = self._smoothing_factor(self.d_cutoff, dt)
+        self._dx = alpha_d * dx + (1.0 - alpha_d) * self._dx
+        
+        # Compute adaptive cutoff based on filtered speed
+        speed = float(np.linalg.norm(self._dx))
+        cutoff = self.min_cutoff + self.beta * speed
+        
+        # Filter the position
+        alpha = self._smoothing_factor(cutoff, dt)
+        self._x = alpha * current + (1.0 - alpha) * self._x
+        
+        return float(self._x[0]), float(self._x[1])
+
+
 class Smoother:
-    def __init__(self, factor: float, max_step: float | None = None, reacquire_frames: int = 3) -> None:
+    def __init__(self, factor: float, max_step: float | None = None, reacquire_frames: int = 1) -> None:
         self.factor = factor
         self.max_step = max_step
         self.reacquire_frames = reacquire_frames  # Frames needed to trust new position after reset
         self._value: Optional[np.ndarray] = None
         self._candidate: Optional[np.ndarray] = None  # Candidate position during reacquisition
         self._candidate_frames: int = 0
-        self._reacquire_radius: float = 0.15  # Max normalized movement (15% of screen) to count as stable
+        self._reacquire_radius: float = 0.25  # Max normalized movement (25% of screen) to count as stable
 
     def reset(self) -> None:
         """Clear smoothing state to prevent drift from stale data."""

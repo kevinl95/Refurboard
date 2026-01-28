@@ -64,8 +64,12 @@ class CameraSettings:
 class DetectionSettings:
     sensitivity: float = 0.65
     hysteresis: float = 0.15
-    # Smoothing factor: 0.0 = no response, 1.0 = no smoothing (instant).
-    # Higher values (0.8+) give responsive cursor, lower values cause lag.
+    # One-Euro Filter settings for smooth, low-latency drawing
+    # min_cutoff: Lower = more smoothing at low speeds (try 0.5-2.0)
+    # beta: Higher = more responsive at high speeds (try 0.001-0.01)
+    filter_min_cutoff: float = 1.0
+    filter_beta: float = 0.007
+    # Legacy smoothing (kept for fallback)
     smoothing: float = 0.85
     # Cap how much the normalized pointer is allowed to move per frame to tame jittery jumps.
     max_step: float = 0.35

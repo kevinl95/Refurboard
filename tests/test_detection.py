@@ -1,6 +1,6 @@
 import math
 
-from refurboard_py.detection import AdaptiveThreshold, Smoother
+from refurboard_py.detection import AdaptiveThreshold, OneEuroFilter, Smoother
 
 
 def test_adaptive_threshold_hysteresis_behavior():
@@ -46,3 +46,38 @@ def test_smoother_exponential_decay():
     )
     assert math.isclose(x3, expected[0], rel_tol=1e-5)
     assert math.isclose(y3, expected[1], rel_tol=1e-5)
+
+
+def test_one_euro_filter_adaptive_smoothing():
+    """Test that One-Euro Filter adapts based on movement speed."""
+    # Disable reacquisition for testing
+    filt = OneEuroFilter(min_cutoff=1.0, beta=0.01, reacquire_frames=0)
+    
+    # First update initializes the filter
+    result = filt.update((0.5, 0.5), timestamp=0.0)
+    assert result == (0.5, 0.5)
+    
+    # Slow movement - should be heavily filtered (stays closer to previous)
+    result = filt.update((0.51, 0.51), timestamp=0.016)  # ~60fps, tiny movement
+    assert result is not None
+    x, y = result
+    # Should be between previous (0.5) and target (0.51), closer to previous
+    assert 0.5 < x < 0.51
+    assert 0.5 < y < 0.51
+
+
+def test_one_euro_filter_reacquisition():
+    """Test that filter requires stable position after reset."""
+    filt = OneEuroFilter(reacquire_frames=2, reacquire_radius=0.1)
+    
+    # First sample starts reacquisition
+    assert filt.update((0.5, 0.5), timestamp=0.0) is None
+    
+    # Second stable sample - still waiting
+    # (need 2 frames, we're on frame 1)
+    
+    # Jump to different position - restarts reacquisition
+    assert filt.update((0.9, 0.9), timestamp=0.016) is None
+    
+    # Stay stable at new position
+    assert filt.update((0.9, 0.9), timestamp=0.032) is not None  # Now accepted

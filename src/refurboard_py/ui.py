@@ -233,6 +233,13 @@ def _on_hysteresis_changed(sender, app_data, user_data: RefurboardApp | None) ->
 
 
 def _refresh_cameras(app: RefurboardApp) -> None:
+    # Stop the current camera before enumerating to avoid V4L2 conflicts
+    # (Some Linux drivers don't allow opening a device while it's streaming)
+    with app.camera_lock:
+        if app.camera_stream:
+            app.camera_stream.stop()
+            app.camera_stream = None
+    
     dpg.configure_item(CAMERA_COMBO, items=_camera_labels(app))
     dpg.set_value(CAMERA_COMBO, _camera_label_for(app, app.config.camera.device_id))
 
