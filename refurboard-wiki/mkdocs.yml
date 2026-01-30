@@ -8,3 +8,7 @@ theme:
 
   page_source: 
     link: https://github.com/kevinl95/Refurboard
+
+nav:
+  - Home: index.md
+  - Technical Guide: technical.md

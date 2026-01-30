@@ -1,146 +1,113 @@
-# Refurboard Field Guide
+# Refurboard
 
-Refurboard resurrects classroom projectors with a modern Python toolchain. Point a USB webcam—or a phone streaming video through commercial webcam apps like **Camo**, **EpocCam**, or **DroidCam**—at your display, aim an IR pen, and let OpenCV translate those light trails into mouse movement. The new stack replaces the legacy .NET client with:
+## Give Your Classroom Projector Superpowers
 
-- OpenCV-based IR blob detection with adaptive brightness gating.
-- Dear PyGui control surface that is intentionally tall and narrow for lecterns and portrait displays.
-- Fullscreen OpenCV calibration viewport (no nested toolkits, no window chrome). The monitor that shows the overlay is remembered (origin/size + name/index) so cursor movement stays on that display.
-- Cross-platform packaging through Poetry + PyInstaller with CI artifacts for Windows, macOS, and Linux.
+**Refurboard transforms any projector or display into an interactive whiteboard** — no expensive hardware required! Using just a webcam and an IR pen, teachers can write, draw, and interact directly on their projected lessons.
 
-![Refurboard UI column](../assets/logo.png)
+![Refurboard Logo](assets/logo.png)
 
-## Hardware Checklist
+---
 
-| Item | Details |
-|------|---------|
-| **IR pen / Wii-style stylus** | Any 940 nm LED with a momentary button. Classroom packs from Wii-era whiteboard kits work perfectly. |
-| **Camera** | IR-capable USB webcam or phone-as-webcam via commercial apps. Add an external IR-pass filter (or use ready-built “night vision” cams). 720p @ 30 FPS is sufficient. |
-| **Host OS** | Linux: X11 works via pynput/XTest; Wayland requires ydotoold + uinput access (see Linux pointer setup). Windows uses SendInput; macOS uses Quartz CGEvent. |
-| **Display** | Projector, TV, or monitor. Calibration assumes a rectangular surface but compensates for keystone with a 3×3 homography. |
+## Why Refurboard?
 
-## Software Stack
+Many schools have projectors but can't afford expensive interactive whiteboard systems. Refurboard provides the same functionality using equipment you likely already have:
 
-- **Python 3.11+** managed by Poetry.
-- **OpenCV + NumPy** for capture, blob analysis, and homography math.
-- **Dear PyGui** for the main control column (420 px wide, stacked widgets).
-- **Pointer drivers**: ydotool on Linux/Wayland (needs uinput); pynput/XTest on X11; SendInput on Windows; Quartz CGEvent on macOS.
-- **PyInstaller** for single-file binaries.
+- **Free and open source** — no licensing fees, ever
+- **Works with existing projectors** — no need to replace hardware
+- **Simple setup** — get started in minutes
+- **Cross-platform** — runs on Windows, Mac, and Linux  
 
-## Installation
+---
 
-```bash
-# Clone repository
-git clone https://github.com/kevinl95/Refurboard.git
-cd Refurboard
+## What You'll Need
 
-# Install dependencies
-poetry install
+| Item | What to Look For |
+|------|------------------|
+| **IR Pen** | Any infrared stylus with a button (Wii-era whiteboard pens work great and are inexpensive) |
+| **Camera** | A webcam that can see infrared light, OR use your smartphone as a webcam with apps like Camo, EpocCam, or DroidCam |
+| **Computer** | Windows, Mac, or Linux — connected to your projector |
+| **Projector/Display** | Your existing classroom projector or large display |
+| **IR pass filter** | A lens you can place over your camera lens to only let IR light through. |
 
-# Launch the control surface
-poetry run refurboard
-```
+### Tips for Cameras
 
-Poetry downloads all runtime dependencies (OpenCV, Dear PyGui, pynput, etc.) and exposes a console script named `refurboard`.
+You'll need a camera that can see infrared light. The easiest option is to add an **IR pass filter** over the lens — these are inexpensive and readily available (search for "IR pass filter" or "infrared cold mirror" sized for your camera lens).
 
-## Dear PyGui Layout (Columnar UI)
+**Using your phone as a webcam?** These options work well:
 
-The app window is intentionally tall and narrow to sit beside slide decks or OBS scenes. The vertical stack contains:
+- **Android 14+** — Built-in webcam mode (Settings > Connected devices > USB > Webcam)
+- **Camo** (iPhone & Android) — very reliable
+- **EpocCam** (iPhone & Android) — simple to use  
+- **DroidCam** (Android) — budget-friendly option
 
-1. **Logo header** – uses the PNG assets in `/assets` for brand consistency.
-2. **Camera picker** – dropdown listing USB/phone webcams plus a refresh button.
-3. **Sensitivity sliders** – IR gain and click hysteresis with safe defaults (0.65 / 0.15) but adjustable live.
-4. **FoV / corner gain** – optional stretch controls to compensate for lens distortion or tight framing.
-5. **Calibration button** – launches the fullscreen OpenCV viewport on the active display.
-6. **Accuracy summary** – RMS reprojection error, plus the four collected corner coordinates rendered as a quadrilateral readout.
-7. **Live telemetry** – normalized pointer coordinates, IR blob intensity, and click state text.
+**Tip:** Use a USB cable instead of Wi-Fi for the most responsive experience.
 
-## Calibration Walkthrough
+---
 
-1. Position the camera (or phone-as-webcam feed) so the entire display fits in frame.
-2. Click **Start Calibration**. Refurboard opens a borderless fullscreen OpenCV window.
-3. Four circular targets appear clockwise. Hold the IR pen steady on each target; once the blob is stable for ~10 frames, the point locks automatically.
-4. After all four points, Refurboard computes a homography and reports RMS error. Re-run if the error exceeds ~8 pixels.
+## Getting Started
 
-The display that shows the overlay is the one Refurboard will use for cursor movement in future sessions; monitor name/index and origin/size are persisted in the config.
+### Step 1: Download Refurboard
 
-Because the overlay is an OpenCV window, it works uniformly across Linux, Windows, and macOS without Dear PyGui quirks.
+Download the latest version for your operating system from the [Releases page](https://github.com/kevinl95/Refurboard/releases).
 
-## Using Phones as Webcams
+- **Windows:** Download the `.exe` file
+- **Mac:** Download the `.app` file  
+- **Linux:** Download the Linux binary
 
-Commercial apps expose phones as UVC devices; pick whichever your district approves:
+### Step 2: Position Your Camera
 
-- **Reincubate Camo** (USB/Wi-Fi, iOS + Android) – crisp output and stable drivers.
-- **Elgato EpocCam** (USB/Wi-Fi, iOS + Android) – simple, widely adopted.
-- **DroidCam** (USB/Wi-Fi, Android + desktop agent) – mature and inexpensive.
+Set up your camera so it can see the **entire projected area**:
 
-Tips:
+- Mount it on a tripod, shelf, or use a phone clamp
+- Make sure all four corners of your display are visible
+- The camera should be stable (not handheld)
 
-- Prefer USB tethering to avoid Wi-Fi latency.
-- Lock exposure/ISO inside the app so IR brightness stays predictable.
-- Mount the phone firmly (tripod, clamp) and disable auto-focus hunting.
+### Step 3: Launch and Calibrate
 
-## Configuration File
+1. **Open Refurboard** — a small control panel appears
+2. **Select your camera** from the dropdown menu
+3. **Click "Start Calibration"** — a fullscreen window opens with four targets
+4. **Touch each target with your IR pen** — hold steady until it locks (about 1 second each)
+5. **Done!** Your pen now controls the cursor
 
-- Stored via PlatformDirs (e.g., `~/.local/share/Refurboard/refurboard.config.json`).
-- Contains the active camera ID; detection knobs (sensitivity, hysteresis, smoothing, jitter deadzone `min_move_px`, FoV scale, per-corner gain); and the latest calibration quadrilateral plus monitor name/index and origin.
-- Safe to edit between sessions; the UI writes whenever you tweak sliders or complete calibration.
+### Step 4: Start Teaching!
 
-## Linux pointer control (Wayland/X11)
+Your IR pen now works like a mouse:
 
-- X11: works out of the box via pynput/XTest.
-- Wayland: install `ydotool` and ensure uinput access:
-  1) `sudo usermod -aG input $USER` then log out/in.
-  2) Create udev rule:
-	  ```
-	  sudo tee /etc/udev/rules.d/70-uinput.rules >/dev/null <<'EOF'
-	  KERNEL=="uinput", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
-	  EOF
-	  sudo udevadm control --reload-rules
-	  sudo udevadm trigger --subsystem-match=misc --attr-match=name=uinput
-	  sudo modprobe uinput
-	  ```
-  3) Run ydotoold as a user service:
-	  ```
-	  mkdir -p ~/.config/systemd/user
-	  cat > ~/.config/systemd/user/ydotool.service <<'EOF'
-	  [Unit]
-	  Description=ydotoold (user)
-	  After=graphical-session.target
+- **Touch the screen** = Click
+- **Touch and drag** = Draw or highlight
+- Use with any software: PowerPoint, Google Slides, whiteboard apps, web browsers, and more!
 
-	  [Service]
-	  Type=simple
-	  Environment=XDG_RUNTIME_DIR=/run/user/%U
-	  ExecStart=/usr/bin/ydotoold --socket-path /run/user/%U/.ydotool_socket
-	  Restart=on-failure
+---
 
-	  [Install]
-	  WantedBy=default.target
-	  EOF
-	  systemctl --user daemon-reload
-	  systemctl --user enable --now ydotool.service
-	  ```
-  Verify `/run/user/$(id -u)/.ydotool_socket` exists. Refurboard drives the cursor through this socket on Wayland.
+## Quick Troubleshooting
 
-## Testing & Packaging
+| Problem | Solution |
+|---------|----------|
+| **Pen not detected** | Make sure your IR pen's battery is charged and the button is pressed |
+| **Cursor jumps around** | Reduce ambient light or adjust the sensitivity slider |
+| **Wrong screen** | Re-run calibration on the correct display |
+| **Camera not found** | Check USB connection; try a different port |
 
-```bash
-poetry run pytest                      # run unit tests
-poetry run pyinstaller --clean refurboard.spec  # build single-file binary (uses included spec)
-```
+---
 
-GitHub Actions run tests plus PyInstaller builds on Ubuntu, Windows, and macOS while leaving the existing documentation deployment workflow untouched. The spec bundles OpenCV libs, logo assets, and Quartz modules on macOS.
+## Classroom Ideas
 
-## Troubleshooting
+- **Interactive Lessons** — Annotate slides, diagrams, and documents in real-time
+- **Student Participation** — Pass the pen to students for board work
+- **Educational Games** — Play interactive learning games on the big screen
+- **Art Projects** — Digital drawing and collaborative artwork
+- **Math Practice** — Work through problems step-by-step with the class  
 
-| Symptom | Fix |
-|---------|-----|
-| **Cursor wobbles** | Increase smoothing or `min_move_px` in config; reduce camera gain; ensure tripod stability. |
-| **Clicks misfire** | Raise sensitivity or hysteresis so weak reflections keep the click gate open. |
-| **Calibration error > 10 px** | Re-run calibration after re-aiming the camera; ensure camera sees every corner and minimize bright IR reflections. |
-| **Pointer on wrong monitor** | Re-run calibration on the intended display; the app remembers that monitor. |
-| **Wayland: cursor does not move** | Ensure `ydotoold` user service is running and `/run/user/$(id -u)/.ydotool_socket` exists; add user to `input`, apply the udev rule for `/dev/uinput`, reload `uinput`. |
+---
 
-## Next Steps
+## Need More Help?
 
-- Expand wiki with printable classroom posters for IR pen care and alignment tips.
-- Add automated FoV overlay export for projector alignment reference.
+- **Technical documentation** — See the [Technical Guide](technical.md) for advanced setup and IT administrators
+- **Report issues** — Visit our [GitHub page](https://github.com/kevinl95/Refurboard/issues)
+
+---
+
+## About Refurboard
+
+Refurboard is a free, open-source project created to help teachers make the most of their existing classroom technology.
