@@ -324,6 +324,10 @@ class RefurboardApp:
             hysteresis=self.config.detection.hysteresis,
         )
 
+    def update_min_intensity(self, value: float) -> None:
+        self.config.detection.min_intensity = value
+        save_config(self.config)
+
     def update_fov_scale(self, value: float) -> None:
         self.config.detection.fov_scale = value
         save_config(self.config)

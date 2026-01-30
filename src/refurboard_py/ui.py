@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 
 MAIN_WINDOW = "refurboard_main_window"
 CONTENT_WINDOW = "refurboard_content"
-STATUS_TEXT = "refurboard_status"
 ACCURACY_TEXT = "refurboard_accuracy"
 QUAD_CANVAS = "refurboard_quad_canvas"
 CAMERA_COMBO = "refurboard_camera_combo"
 SENSITIVITY_SLIDER = "refurboard_sensitivity"
 HYSTERESIS_SLIDER = "refurboard_hysteresis"
+MIN_INTENSITY_SLIDER = "refurboard_min_intensity"
 
 VIEWPORT_WIDTH = 560
 VIEWPORT_HEIGHT = 1024
@@ -134,6 +134,16 @@ def _build_controls(app: RefurboardApp) -> None:
         callback=_on_hysteresis_changed,
         user_data=app,
     )
+    dpg.add_text("Min Intensity (filter noise)", color=(230, 230, 230))
+    dpg.add_slider_float(
+        tag=MIN_INTENSITY_SLIDER,
+        width=CONTROL_WIDTH,
+        min_value=1.0,
+        max_value=20.0,
+        default_value=app.config.detection.min_intensity,
+        callback=_on_min_intensity_changed,
+        user_data=app,
+    )
     dpg.add_spacer(height=20)
     dpg.add_button(
         label="Start Calibration",
@@ -148,9 +158,6 @@ def _build_controls(app: RefurboardApp) -> None:
     dpg.add_text("Calibration Preview", color=(230, 230, 230))
     with dpg.drawlist(width=CANVAS_WIDTH, height=CANVAS_HEIGHT, tag=QUAD_CANVAS):
         pass
-    dpg.add_spacer(height=24)
-    dpg.add_text("Status", color=(230, 230, 230))
-    dpg.add_text("Waiting for frames...", tag=STATUS_TEXT, wrap=CONTROL_WIDTH)
 
 
 def _schedule_refresh(app: "RefurboardApp") -> None:
@@ -232,6 +239,16 @@ def _on_hysteresis_changed(sender, app_data, user_data: RefurboardApp | None) ->
     user_data.update_hysteresis(value)
 
 
+def _on_min_intensity_changed(sender, app_data, user_data: RefurboardApp | None) -> None:
+    if user_data is None:
+        return
+    try:
+        value = float(app_data)
+    except (TypeError, ValueError):
+        return
+    user_data.update_min_intensity(value)
+
+
 def _refresh_cameras(app: RefurboardApp) -> None:
     # Stop the current camera before enumerating to avoid V4L2 conflicts
     # (Some Linux drivers don't allow opening a device while it's streaming)
@@ -246,11 +263,6 @@ def _refresh_cameras(app: RefurboardApp) -> None:
 
 def _refresh_status(app: RefurboardApp) -> None:
     status = app.get_status()
-    pointer = status.get("pointer")
-    pointer_text = f"Pointer: {pointer[0]:.3f}, {pointer[1]:.3f}" if pointer else "Pointer: —"
-    blob_text = f"Blob intensity: {status['blob_intensity']:.1f}"
-    click_text = "Click: active" if status["click_active"] else "Click: idle"
-    dpg.set_value(STATUS_TEXT, f"{pointer_text}\n{blob_text}\n{click_text}")
     error = status.get("calibration_error")
     if error is None:
         dpg.set_value(ACCURACY_TEXT, "Not calibrated")
