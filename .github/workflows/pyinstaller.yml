@@ -51,7 +51,7 @@ jobs:
         shell: bash
 
       - name: Build executable
-        run: poetry run pyinstaller -F -n refurboard src/refurboard_py/app.py
+        run: poetry run pyinstaller --clean refurboard.spec
         shell: bash
 
       - name: Upload artifact
