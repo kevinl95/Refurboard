@@ -42,7 +42,7 @@ else:
 _icon = str(_icon) if _icon.exists() else None
 
 a = Analysis(
-    ['src/refurboard_py/app.py'],
+    ['src/refurboard_py/__main__.py'],
     pathex=[str(root)],
     binaries=_binaries,
     datas=_datas,
