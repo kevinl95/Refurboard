@@ -56,6 +56,21 @@ Download the latest version for your operating system from the [Releases page](h
 - **Mac:** Download the `.app` file  
 - **Linux:** Download the Linux binary
 
+### Mac Users: First-Time Setup
+
+Since Refurboard isn't from the Mac App Store, your Mac will show a security warning the first time you open it. Here's how to allow it:
+
+1. **Right-click** (or Control-click) on **Refurboard.app**
+2. Select **Open** from the menu
+3. Click **Open** in the warning dialog
+4. That's it! The app will now open normally every time
+
+*If you already tried to open it and got blocked:*
+
+1. Open **System Settings** > **Privacy & Security**
+2. Scroll down to find the message about Refurboard
+3. Click **Open Anyway**
+
 ### Step 2: Position Your Camera
 
 Set up your camera so it can see the **entire projected area**:
@@ -90,6 +105,7 @@ Your IR pen now works like a mouse:
 | **Cursor jumps around** | Reduce ambient light or adjust the sensitivity slider |
 | **Wrong screen** | Re-run calibration on the correct display |
 | **Camera not found** | Check USB connection; try a different port |
+| **Mac: "unidentified developer"** | Right-click the app, select Open, then click Open in the dialog |
 
 ---
 

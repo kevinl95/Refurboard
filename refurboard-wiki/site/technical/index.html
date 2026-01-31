@@ -202,6 +202,12 @@
     
     
     <li class="nav-subitem">
+    <a href="#macos-gatekeeper">macOS Gatekeeper</a>
+    </li>
+    
+    
+    
+    <li class="nav-subitem">
     <a href="#testing-packaging">Testing &amp; Packaging</a>
     </li>
     
@@ -310,6 +316,21 @@ systemctl --user daemon-reload
 systemctl --user enable --now ydotool.service
 </code></pre>
 <p>Verify <code>/run/user/$(id -u)/.ydotool_socket</code> exists. Refurboard drives the cursor through this socket on Wayland.</p>
+<h2 id="macos-gatekeeper">macOS Gatekeeper</h2>
+<p>Since Refurboard is not signed with an Apple Developer certificate, macOS will block it by default. Users have three options:</p>
+<p><strong>Method 1: Right-click to Open (recommended for end users)</strong>
+1. Right-click (or Control-click) on <code>Refurboard.app</code>
+2. Select <strong>Open</strong> from the context menu
+3. Click <strong>Open</strong> in the warning dialog</p>
+<p><strong>Method 2: System Settings</strong>
+1. Try to open the app (it will be blocked)
+2. Open <strong>System Settings</strong> &gt; <strong>Privacy &amp; Security</strong>
+3. Find the message about Refurboard being blocked and click <strong>Open Anyway</strong></p>
+<p><strong>Method 3: Terminal (for IT deployment)</strong></p>
+<pre><code class="language-bash"># Remove the quarantine attribute
+xattr -cr /path/to/Refurboard.app
+</code></pre>
+<p>After any method, macOS will remember the choice and the app opens normally in the future.</p>
 <h2 id="testing-packaging">Testing &amp; Packaging</h2>
 <pre><code class="language-bash">poetry run pytest                      # run unit tests
 poetry run pyinstaller --clean refurboard.spec  # build single-file binary
@@ -343,6 +364,10 @@ poetry run pyinstaller --clean refurboard.spec  # build single-file binary
 <tr>
 <td><strong>Wayland: cursor does not move</strong></td>
 <td>Ensure <code>ydotoold</code> user service is running and <code>/run/user/$(id -u)/.ydotool_socket</code> exists; add user to <code>input</code>, apply the udev rule for <code>/dev/uinput</code>, reload <code>uinput</code>.</td>
+</tr>
+<tr>
+<td><strong>macOS: "unidentified developer"</strong></td>
+<td>Right-click the app &gt; Open &gt; Open, or use <code>xattr -cr Refurboard.app</code> in Terminal.</td>
 </tr>
 </tbody>
 </table>

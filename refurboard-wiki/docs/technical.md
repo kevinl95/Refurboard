@@ -103,6 +103,28 @@ systemctl --user enable --now ydotool.service
 
 Verify `/run/user/$(id -u)/.ydotool_socket` exists. Refurboard drives the cursor through this socket on Wayland.
 
+## macOS Gatekeeper
+
+Since Refurboard is not signed with an Apple Developer certificate, macOS will block it by default. Users have three options:
+
+**Method 1: Right-click to Open (recommended for end users)**
+1. Right-click (or Control-click) on `Refurboard.app`
+2. Select **Open** from the context menu
+3. Click **Open** in the warning dialog
+
+**Method 2: System Settings**
+1. Try to open the app (it will be blocked)
+2. Open **System Settings** > **Privacy & Security**
+3. Find the message about Refurboard being blocked and click **Open Anyway**
+
+**Method 3: Terminal (for IT deployment)**
+```bash
+# Remove the quarantine attribute
+xattr -cr /path/to/Refurboard.app
+```
+
+After any method, macOS will remember the choice and the app opens normally in the future.
+
 ## Testing & Packaging
 
 ```bash
@@ -121,6 +143,7 @@ GitHub Actions run tests plus PyInstaller builds on Ubuntu, Windows, and macOS. 
 | **Calibration error > 10 px** | Re-run calibration after re-aiming the camera; ensure camera sees every corner and minimize bright IR reflections. |
 | **Pointer on wrong monitor** | Re-run calibration on the intended display; the app remembers that monitor. |
 | **Wayland: cursor does not move** | Ensure `ydotoold` user service is running and `/run/user/$(id -u)/.ydotool_socket` exists; add user to `input`, apply the udev rule for `/dev/uinput`, reload `uinput`. |
+| **macOS: "unidentified developer"** | Right-click the app > Open > Open, or use `xattr -cr Refurboard.app` in Terminal. |
 
 ## Contributing
 

@@ -56,8 +56,8 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Suppress console window on Windows (keep for Linux/macOS for debugging)
-_console = platform.system() != "Windows"
+# Suppress console window on Windows and macOS (keep for Linux for debugging)
+_console = platform.system() == "Linux"
 
 exe = EXE(
     pyz,
@@ -76,3 +76,21 @@ exe = EXE(
     console=_console,
     icon=_icon,
 )
+
+# Create macOS app bundle for proper GUI integration
+if platform.system() == "Darwin":
+    app = BUNDLE(
+        exe,
+        name='Refurboard.app',
+        icon=_icon,
+        bundle_identifier='com.refurboard.app',
+        info_plist={
+            'CFBundleName': 'Refurboard',
+            'CFBundleDisplayName': 'Refurboard',
+            'CFBundleVersion': '1.0.0',
+            'CFBundleShortVersionString': '1.0.0',
+            'NSHighResolutionCapable': True,
+            'NSCameraUsageDescription': 'Refurboard needs camera access to track the IR pen.',
+            'LSMinimumSystemVersion': '10.13.0',
+        },
+    )

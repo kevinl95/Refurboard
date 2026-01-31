@@ -95,6 +95,31 @@ The calibration overlay is intentionally independent of Dear PyGui. OpenCV's `cv
 	  ```
   Verify `/run/user/$(id -u)/.ydotool_socket` exists. Refurboard will drive the cursor through this socket on Wayland.
 
+### macOS Gatekeeper (unidentified developer warning)
+
+Since Refurboard is not signed with an Apple Developer certificate, macOS will block it by default. To run the app:
+
+**Method 1: Right-click to Open (recommended)**
+1. Right-click (or Control-click) on `Refurboard.app`
+2. Select **Open** from the context menu
+3. Click **Open** in the dialog that appears
+4. The app will now run and be remembered for future launches
+
+**Method 2: System Settings**
+1. Try to open the app normally (it will be blocked)
+2. Open **System Settings** > **Privacy & Security**
+3. Scroll down and find the message about Refurboard being blocked
+4. Click **Open Anyway**
+5. Enter your password if prompted
+
+**Method 3: Terminal (advanced)**
+```bash
+# Remove the quarantine attribute from the downloaded app
+xattr -cr /path/to/Refurboard.app
+```
+
+After using any method, macOS will remember your choice and the app will open normally in the future.
+
 ## Configuration
 
 - Stored at `${XDG_DATA_HOME:-~/.local/share}/Refurboard/refurboard.config.json` (PlatformDirs takes care of Windows/macOS equivalents).
