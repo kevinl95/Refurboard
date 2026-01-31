@@ -56,6 +56,9 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Suppress console window on Windows (keep for Linux/macOS for debugging)
+_console = platform.system() != "Windows"
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -70,6 +73,6 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=_console,
     icon=_icon,
 )

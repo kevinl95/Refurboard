@@ -32,15 +32,26 @@ FONT_SCALE = 2.0
 ERROR_MODAL = "refurboard_error_modal"
 
 
+def _get_asset_path(filename: str) -> Path | None:
+    """Get path to bundled asset, works both in dev and PyInstaller builds."""
+    import sys
+    # PyInstaller extracts to _MEIPASS temp directory
+    if hasattr(sys, '_MEIPASS'):
+        path = Path(sys._MEIPASS) / "assets" / filename
+    else:
+        path = Path(__file__).parent.parent.parent / "assets" / filename
+    return path if path.exists() else None
+
+
 def launch(app: RefurboardApp) -> None:
     dpg.create_context()
     dpg.set_global_font_scale(FONT_SCALE)
 
     dpg.create_viewport(title="Refurboard", width=VIEWPORT_WIDTH, height=VIEWPORT_HEIGHT)
     
-    # Set window icon
-    logo_path = Path(__file__).parent.parent.parent / "assets" / "logo.ico"
-    if logo_path.exists():
+    # Set window icon (for taskbar)
+    logo_path = _get_asset_path("logo.ico")
+    if logo_path:
         dpg.set_viewport_small_icon(str(logo_path))
         dpg.set_viewport_large_icon(str(logo_path))
     
