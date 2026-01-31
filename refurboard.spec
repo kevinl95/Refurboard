@@ -7,7 +7,7 @@ import inspect
 
 from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules
 from PyInstaller.utils.hooks import copy_metadata
-from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT
+from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE
 
 block_cipher = None
 
@@ -91,6 +91,10 @@ if platform.system() == "Darwin":
             'CFBundleShortVersionString': '1.0.0',
             'NSHighResolutionCapable': True,
             'NSCameraUsageDescription': 'Refurboard needs camera access to track the IR pen.',
+            'NSAccessibilityUsageDescription': 'Refurboard needs accessibility access to control the cursor.',
             'LSMinimumSystemVersion': '10.13.0',
+            'LSEnvironment': {
+                'OBJC_DISABLE_INITIALIZE_FORK_SAFETY': 'YES',
+            },
         },
     )

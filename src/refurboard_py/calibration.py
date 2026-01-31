@@ -12,13 +12,15 @@ from dataclasses import dataclass
 from multiprocessing import Pipe, Process
 from multiprocessing.connection import Connection
 from threading import Event, Lock
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 import os
 import time
 
 import cv2
 import numpy as np
-import tkinter as tk
+# NOTE: tkinter is imported lazily inside _overlay_process() to avoid issues
+# with macOS multiprocessing (Cocoa framework conflicts when forking/spawning
+# after GUI toolkit initialization in the main process).
 from screeninfo import get_monitors
 from pynput.mouse import Controller as MouseController
 from pynput import keyboard
@@ -252,6 +254,10 @@ def close_all_overlays() -> None:
 
 
 def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
+    # Import tkinter here (not at module level) to avoid macOS Cocoa/fork issues.
+    # On macOS, importing GUI toolkits before spawning subprocesses can cause crashes.
+    import tkinter as tk
+    
     root = tk.Tk()
     root.overrideredirect(True)
     root.configure(bg="#050505")
@@ -441,7 +447,8 @@ def get_primary_display() -> ScreenBounds:
         monitors = []
     
     if not monitors:
-        # Fallback to Tk
+        # Fallback to Tk - import here to avoid macOS multiprocessing issues
+        import tkinter as tk
         root = tk.Tk()
         root.withdraw()
         width = root.winfo_screenwidth()

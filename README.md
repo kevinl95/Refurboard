@@ -120,6 +120,19 @@ xattr -cr /path/to/Refurboard.app
 
 After using any method, macOS will remember your choice and the app will open normally in the future.
 
+### macOS Accessibility Permission (required for cursor control)
+
+macOS requires explicit user permission for apps to control the cursor. Unlike Camera access, **this cannot be prompted automatically** — you must manually grant it:
+
+1. Open **System Settings** > **Privacy & Security** > **Accessibility**
+2. Click the **+** button (you may need to unlock with your password)
+3. Navigate to and select **Refurboard.app**
+4. Ensure the toggle next to Refurboard is **enabled**
+
+**Why is this required?** Accessibility permissions allow apps to control the entire system (mouse, keyboard, other apps). Apple considers this too sensitive to allow apps to request via a popup — users must make a deliberate choice to grant it.
+
+**Symptom if not granted:** Refurboard will track the IR pen (you'll see coordinates updating in the UI) but the system cursor won't move.
+
 ## Configuration
 
 - Stored at `${XDG_DATA_HOME:-~/.local/share}/Refurboard/refurboard.config.json` (PlatformDirs takes care of Windows/macOS equivalents).
