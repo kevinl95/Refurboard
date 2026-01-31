@@ -1,5 +1,7 @@
 # Technical Documentation
 
+[Home](index.md) | [Technical Guide](technical.md)
+
 This page covers the technical details for developers and IT administrators who want to understand Refurboard's internals, contribute to the project, or troubleshoot advanced issues.
 
 ## Software Stack
@@ -25,12 +27,12 @@ The Dear PyGui control surface is intentionally tall and narrow for lecterns and
 
 The app window vertical stack contains:
 
-1. **Logo header** – uses the PNG assets in `/assets` for brand consistency.
-2. **Camera picker** – dropdown listing USB/phone webcams plus a refresh button.
-3. **Sensitivity sliders** – IR gain and click hysteresis with safe defaults but adjustable live.
-4. **Calibration button** – launches the fullscreen OpenCV viewport on the active display.
-5. **Accuracy summary** – RMS reprojection error displayed after calibration.
-6. **Live preview** – shows the camera feed with detected IR blobs highlighted.
+1. **Logo header** - uses the PNG assets in `/assets` for brand consistency.
+2. **Camera picker** - dropdown listing USB/phone webcams plus a refresh button.
+3. **Sensitivity sliders** - IR gain and click hysteresis with safe defaults but adjustable live.
+4. **Calibration button** - launches the fullscreen OpenCV viewport on the active display.
+5. **Accuracy summary** - RMS reprojection error displayed after calibration.
+6. **Live preview** - shows the camera feed with detected IR blobs highlighted.
 
 ## Configuration File
 
