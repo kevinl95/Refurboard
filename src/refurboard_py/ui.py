@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 import dearpygui.dearpygui as dpg
@@ -28,6 +28,10 @@ SIDE_PADDING = int((VIEWPORT_WIDTH - CONTROL_WIDTH) / 2)
 CANVAS_WIDTH = CONTROL_WIDTH
 CANVAS_HEIGHT = 280
 CANVAS_MARGIN = 14
+
+# Cache for calibration preview to avoid flickering on Windows
+# Stores the last drawn calibration points signature
+_last_quad_signature: Optional[Tuple] = None
 FONT_SCALE = 2.0
 ERROR_MODAL = "refurboard_error_modal"
 
@@ -292,9 +296,32 @@ def _refresh_status(app: RefurboardApp) -> None:
     _update_quad_canvas(app)
 
 
-def _update_quad_canvas(app: RefurboardApp) -> None:
+def _get_calibration_signature(app: RefurboardApp) -> Optional[Tuple]:
+    """Generate a signature for the current calibration state.
+    
+    Returns None if not calibrated, otherwise a tuple of camera points
+    that can be compared for equality to detect changes.
+    """
+    calibration = app.config.calibration
+    if not calibration or not calibration.points:
+        return None
+    # Create a hashable signature from the calibration points
+    return tuple((p.camera_px[0], p.camera_px[1]) for p in calibration.points)
+
+
+def _update_quad_canvas(app: RefurboardApp, force: bool = False) -> None:
+    global _last_quad_signature
+    
     if not dpg.does_item_exist(QUAD_CANVAS):
         return
+    
+    # Check if calibration has actually changed to avoid flicker
+    current_signature = _get_calibration_signature(app)
+    if not force and current_signature == _last_quad_signature:
+        return  # No change, skip redraw
+    
+    _last_quad_signature = current_signature
+    
     dpg.delete_item(QUAD_CANVAS, children_only=True)
     background = (90, 90, 90, 255)
     dpg.draw_rectangle(
