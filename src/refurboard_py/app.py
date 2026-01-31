@@ -355,6 +355,13 @@ class RefurboardApp:
     def run_calibration(self) -> None:
         if self._calibration_thread and self._calibration_thread.is_alive():
             return
+        # Check for camera before starting thread (UI thread can show alert)
+        with self.camera_lock:
+            if self.camera_stream is None:
+                print("[Refurboard] Cannot start calibration: no camera stream. Select a camera first.")
+                from .ui import show_alert
+                show_alert("No Camera", "Select a camera before calibrating.")
+                return
         self._calibration_thread = threading.Thread(target=self._calibrate, daemon=True)
         self._calibration_thread.start()
 
@@ -362,7 +369,8 @@ class RefurboardApp:
         with self.camera_lock:
             stream = self.camera_stream
         if stream is None:
-            print("[Refurboard] Cannot start calibration: no camera stream. Select a camera first.")
+            # Shouldn't reach here since we check in run_calibration, but keep as safety
+            print("[Refurboard] Cannot start calibration: no camera stream.")
             self._calibration_thread = None
             return
         self._calibrating.set()

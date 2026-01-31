@@ -34,6 +34,9 @@ CANVAS_MARGIN = 14
 _last_quad_signature: Optional[Tuple] = None
 FONT_SCALE = 2.0
 ERROR_MODAL = "refurboard_error_modal"
+ALERT_MODAL = "refurboard_alert_modal"
+ALERT_TITLE = "refurboard_alert_title"
+ALERT_MESSAGE = "refurboard_alert_message"
 
 
 def _get_asset_path(filename: str) -> Path | None:
@@ -81,6 +84,26 @@ def launch(app: RefurboardApp) -> None:
             label="OK",
             width=380,
             callback=lambda: dpg.configure_item(ERROR_MODAL, show=False),
+        )
+    
+    # Create generic alert modal (hidden by default)
+    with dpg.window(
+        tag=ALERT_MODAL,
+        label="Alert",
+        modal=True,
+        show=False,
+        no_resize=True,
+        width=400,
+        height=140,
+    ):
+        dpg.add_text("", tag=ALERT_TITLE, color=(255, 200, 100))
+        dpg.add_spacer(height=10)
+        dpg.add_text("", tag=ALERT_MESSAGE, wrap=380)
+        dpg.add_spacer(height=10)
+        dpg.add_button(
+            label="OK",
+            width=380,
+            callback=lambda: dpg.configure_item(ALERT_MODAL, show=False),
         )
     
     with dpg.window(
@@ -373,3 +396,14 @@ def _update_quad_canvas(app: RefurboardApp, force: bool = False) -> None:
         )
         for px, py in projected:
             dpg.draw_circle((px, py), 6, fill=(255, 255, 255, 255), color=(0, 0, 0, 0), parent=QUAD_CANVAS)
+
+
+def show_alert(title: str, message: str) -> None:
+    """Show a modal alert dialog with the given title and message.
+    
+    This uses Dear PyGui's modal window, avoiding tkinter which has
+    compatibility issues with multiprocessing on macOS.
+    """
+    dpg.set_value(ALERT_TITLE, title)
+    dpg.set_value(ALERT_MESSAGE, message)
+    dpg.configure_item(ALERT_MODAL, show=True)
