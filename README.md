@@ -120,6 +120,16 @@ xattr -cr /path/to/Refurboard.app
 
 After using any method, macOS will remember your choice and the app will open normally in the future.
 
+### macOS Camera Permission
+
+When Refurboard first tries to access your camera, macOS will prompt for permission. Click **OK** to allow access.
+
+If no cameras appear in the dropdown and you previously denied permission (or dismissed the prompt):
+
+1. Open **System Settings** > **Privacy & Security** > **Camera**
+2. Find **Refurboard** in the list and enable it
+3. Restart Refurboard
+
 ### macOS Accessibility Permission (required for cursor control)
 
 macOS requires explicit user permission for apps to control the cursor. Unlike Camera access, **this cannot be prompted automatically** — you must manually grant it:

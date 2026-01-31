@@ -71,6 +71,14 @@ Since Refurboard isn't from the Mac App Store, your Mac will show a security war
 2. Scroll down to find the message about Refurboard
 3. Click **Open Anyway**
 
+**Grant Camera Permission:**
+
+When you first select a camera, macOS will ask for permission. Click **OK** to allow access. If no cameras appear in the dropdown:
+
+1. Open **System Settings** > **Privacy & Security** > **Camera**
+2. Find **Refurboard** in the list and enable it
+3. Restart Refurboard
+
 **Grant Accessibility Permission (required for cursor control):**
 
 Refurboard needs permission to move your cursor. macOS won't prompt for this automatically — you must grant it manually:
@@ -117,6 +125,7 @@ Your IR pen now works like a mouse:
 | **Wrong screen** | Re-run calibration on the correct display |
 | **Camera not found** | Check USB connection; try a different port |
 | **Mac: "unidentified developer"** | Right-click the app, select Open, then click Open in the dialog |
+| **Mac: No cameras detected** | Grant Camera permission in System Settings > Privacy & Security > Camera |
 | **Mac: Cursor doesn't move** | Grant Accessibility permission in System Settings > Privacy & Security > Accessibility |
 
 ---

@@ -37,6 +37,7 @@ ERROR_MODAL = "refurboard_error_modal"
 ALERT_MODAL = "refurboard_alert_modal"
 ALERT_TITLE = "refurboard_alert_title"
 ALERT_MESSAGE = "refurboard_alert_message"
+MAC_CAMERA_MODAL = "refurboard_mac_camera_modal"
 
 
 def _get_asset_path(filename: str) -> Path | None:
@@ -106,6 +107,32 @@ def launch(app: RefurboardApp) -> None:
             callback=lambda: dpg.configure_item(ALERT_MODAL, show=False),
         )
     
+    # macOS Camera permission modal (hidden by default)
+    with dpg.window(
+        tag=MAC_CAMERA_MODAL,
+        label="Camera Permission Required",
+        modal=True,
+        show=False,
+        no_resize=True,
+        width=420,
+        height=220,
+    ):
+        dpg.add_text("No cameras detected!", color=(255, 100, 100))
+        dpg.add_spacer(height=10)
+        dpg.add_text("Refurboard needs Camera permission to work.", wrap=400)
+        dpg.add_spacer(height=5)
+        dpg.add_text("To grant access:", wrap=400)
+        dpg.add_text("  1. Open System Settings", wrap=400)
+        dpg.add_text("  2. Go to Privacy & Security > Camera", wrap=400)
+        dpg.add_text("  3. Enable Refurboard in the list", wrap=400)
+        dpg.add_text("  4. Restart Refurboard", wrap=400)
+        dpg.add_spacer(height=10)
+        dpg.add_button(
+            label="OK",
+            width=400,
+            callback=lambda: dpg.configure_item(MAC_CAMERA_MODAL, show=False),
+        )
+    
     with dpg.window(
         tag=MAIN_WINDOW,
         label="Refurboard",
@@ -126,9 +153,15 @@ def launch(app: RefurboardApp) -> None:
     dpg.setup_dearpygui()
     dpg.show_viewport()
     
-    # Show error modal if camera failed to start
+    # Show appropriate error modal on startup
     if app.camera_failed:
-        dpg.configure_item(ERROR_MODAL, show=True)
+        # Check if this might be a macOS Camera permission issue
+        import platform
+        from .camera import no_real_cameras_found
+        if platform.system() == "Darwin" and no_real_cameras_found(app.devices):
+            dpg.configure_item(MAC_CAMERA_MODAL, show=True)
+        else:
+            dpg.configure_item(ERROR_MODAL, show=True)
     
     _schedule_refresh(app)
     dpg.start_dearpygui()

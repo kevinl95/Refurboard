@@ -28,12 +28,22 @@ class CameraDescriptor:
 
 def enumerate_devices(max_devices: int = 8) -> List[CameraDescriptor]:
     devices: List[CameraDescriptor] = []
+    
+    # Determine the appropriate backend for the platform
+    backend = cv2.CAP_ANY  # Let OpenCV choose
+    if _is_macos():
+        # Use AVFoundation explicitly on macOS for better compatibility
+        # with built-in cameras and virtual cameras (Camo, EpocCam, etc.)
+        backend = cv2.CAP_AVFOUNDATION
+    
     for device_id in range(max_devices):
-        if os.name == "posix":
+        # On Linux, check /dev/video* exists before trying to open
+        # On macOS/Windows, just try to open the device directly
+        if os.name == "posix" and not _is_macos():
             dev_path = Path(f"/dev/video{device_id}")
             if not dev_path.exists() or not os.access(dev_path, os.R_OK):
                 continue
-        cap = cv2.VideoCapture(device_id)
+        cap = cv2.VideoCapture(device_id, backend)
         if not cap.isOpened():
             cap.release()
             continue
@@ -44,6 +54,29 @@ def enumerate_devices(max_devices: int = 8) -> List[CameraDescriptor]:
     if not devices:
         devices.append(CameraDescriptor(device_id=0, label="Camera 0"))
     return devices
+
+
+def no_real_cameras_found(devices: List[CameraDescriptor]) -> bool:
+    """Check if only the fallback camera was returned (no actual cameras detected).
+    
+    This is useful for detecting when macOS Camera permission may be missing.
+    """
+    if len(devices) == 1 and devices[0].device_id == 0 and devices[0].resolution is None:
+        return True
+    return False
+
+
+def _is_macos() -> bool:
+    """Check if running on macOS."""
+    import platform
+    return platform.system() == "Darwin"
+
+
+def _get_camera_backend() -> int:
+    """Get the appropriate OpenCV video capture backend for the current platform."""
+    if _is_macos():
+        return cv2.CAP_AVFOUNDATION
+    return cv2.CAP_ANY
 
 
 class CameraStream:
@@ -65,11 +98,12 @@ class CameraStream:
     def start(self) -> bool:
         if self._running.is_set():
             return True
-        if os.name == "posix":
+        # On Linux, check /dev/video* exists; on macOS/Windows, just try to open
+        if os.name == "posix" and not _is_macos():
             dev_path = Path(f"/dev/video{self.device_id}")
             if not dev_path.exists() or not os.access(dev_path, os.R_OK):
                 return False
-        capture = cv2.VideoCapture(self.device_id)
+        capture = cv2.VideoCapture(self.device_id, _get_camera_backend())
         if not capture.isOpened():
             capture.release()
             return False

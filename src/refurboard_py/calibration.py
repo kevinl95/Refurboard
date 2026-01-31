@@ -256,6 +256,19 @@ def close_all_overlays() -> None:
 def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
     # Import tkinter here (not at module level) to avoid macOS Cocoa/fork issues.
     # On macOS, importing GUI toolkits before spawning subprocesses can cause crashes.
+    import platform
+    
+    # On macOS, hide this subprocess from the Dock before importing tkinter.
+    # This prevents the "phantom second app" in the Dock.
+    if platform.system() == "Darwin":
+        try:
+            from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+            app = NSApplication.sharedApplication()
+            app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+        except ImportError:
+            # AppKit not available - Dock icon will appear but app still works
+            pass
+    
     import tkinter as tk
     
     root = tk.Tk()
@@ -266,10 +279,17 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
     root.geometry(geom)
     root.attributes("-topmost", True)
     
+    # On macOS, lift the window and focus it to ensure it appears
+    if platform.system() == "Darwin":
+        root.lift()
+        root.focus_force()
+    
     # Try to force the position again after the window is mapped
     def _force_position():
         root.geometry(geom)
         root.update_idletasks()
+        if platform.system() == "Darwin":
+            root.lift()
     root.after(50, _force_position)
     root.after(100, _force_position)
     
