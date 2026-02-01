@@ -26,11 +26,9 @@ for fname in ("logo.png", "logo.ico", "logo.icns"):
 _binaries = collect_dynamic_libs("cv2")
 
 _hidden = []
-# Ensure pyobjc modules are discovered on macOS (Quartz for cursor, AppKit for Dock hiding)
+# Ensure pyobjc modules are discovered on macOS (Quartz for cursor control)
 if platform.system() == "Darwin":
     _hidden += collect_submodules("Quartz")
-    _hidden += collect_submodules("AppKit")
-    _hidden += collect_submodules("objc")
     _hidden += collect_submodules("pyobjc")
 
 # Carry package metadata for license/readme propagation
