@@ -224,6 +224,9 @@ class _MacBackend:
         self._move_event = Quartz.kCGEventMouseMoved
         self._down_event = Quartz.kCGEventLeftMouseDown
         self._up_event = Quartz.kCGEventLeftMouseUp
+        # Track last position to avoid redundant moves that cause jitter
+        self._last_x: int | None = None
+        self._last_y: int | None = None
 
     def _post(self, event_type, x: int, y: int) -> None:
         event = self._Quartz.CGEventCreateMouseEvent(
@@ -235,12 +238,26 @@ class _MacBackend:
         self._Quartz.CGEventPost(self._event_tap, event)
 
     def move(self, x: int, y: int) -> None:
-        self._post(self._move_event, x, y)
+        # Skip if position hasn't changed - CGEventMouseMoved can cause jitter
+        # even when posting the same coordinates repeatedly
+        if x == self._last_x and y == self._last_y:
+            return
+        self._last_x = x
+        self._last_y = y
+        # Use CGWarpMouseCursorPosition for truly absolute positioning.
+        # Unlike CGEventMouseMoved, this doesn't have relative-motion tracking
+        # side effects that can cause cursor jitter on macOS.
+        self._Quartz.CGWarpMouseCursorPosition((float(x), float(y)))
 
     def press(self, x: int, y: int) -> None:
+        # Update tracked position for consistency
+        self._last_x = x
+        self._last_y = y
         self._post(self._down_event, x, y)
 
     def release(self, x: int, y: int) -> None:
+        self._last_x = x
+        self._last_y = y
         self._post(self._up_event, x, y)
 
 
@@ -251,6 +268,9 @@ class _WindowsBackend:
         self._user32 = ctypes.windll.user32
         self._extra = ctypes.c_ulong(0)
         self._update_metrics()
+        # Track last position to avoid redundant SendInput calls
+        self._last_x: int | None = None
+        self._last_y: int | None = None
 
     def _update_metrics(self) -> None:
         width = self._user32.GetSystemMetrics(0) - 1
@@ -274,12 +294,21 @@ class _WindowsBackend:
             raise OSError("SendInput failed")
 
     def move(self, x: int, y: int) -> None:
+        # Skip if position hasn't changed - reduces unnecessary SendInput calls
+        if x == self._last_x and y == self._last_y:
+            return
+        self._last_x = x
+        self._last_y = y
         self._send(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, x, y)
 
     def press(self, x: int, y: int) -> None:
+        self._last_x = x
+        self._last_y = y
         self._send(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN, x, y)
 
     def release(self, x: int, y: int) -> None:
+        self._last_x = x
+        self._last_y = y
         self._send(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTUP, x, y)
 
 
