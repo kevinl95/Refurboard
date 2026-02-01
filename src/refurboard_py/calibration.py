@@ -191,11 +191,15 @@ class CalibrationOverlay:
         self._process.start()
         with _OVERLAY_LOCK:
             _OVERLAY_REGISTRY.add(self)
-        try:
-            self._keyboard_listener = keyboard.Listener(on_press=self._on_key_press)
-            self._keyboard_listener.start()
-        except Exception:
-            self._keyboard_listener = None
+        # On macOS, pynput keyboard listener can cause issues with multiprocessing
+        # Skip it there - users can close the overlay window directly
+        import platform
+        if platform.system() != "Darwin":
+            try:
+                self._keyboard_listener = keyboard.Listener(on_press=self._on_key_press)
+                self._keyboard_listener.start()
+            except Exception:
+                self._keyboard_listener = None
 
     def set_target(self, local_target: Tuple[int, int], label: str, progress: int) -> None:
         self._send({
@@ -257,13 +261,26 @@ def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
     # Import tkinter here (not at module level) to avoid macOS Cocoa/fork issues.
     # On macOS, importing GUI toolkits before spawning subprocesses can cause crashes.
     import platform
-    import tkinter as tk
+    import sys
+    
+    try:
+        import tkinter as tk
+    except Exception as e:
+        print(f"[Calibration] Failed to import tkinter: {e}", file=sys.stderr)
+        conn.send("cancelled")
+        return
     
     # NOTE: We previously tried hiding from Dock with AppKit here, but it conflicts
     # with tkinter on macOS and causes crashes. The second Dock icon is cosmetic
     # and doesn't affect functionality - we'll live with it for now.
     
-    root = tk.Tk()
+    try:
+        root = tk.Tk()
+    except Exception as e:
+        print(f"[Calibration] Failed to create Tk root: {e}", file=sys.stderr)
+        conn.send("cancelled")
+        return
+    
     root.overrideredirect(True)
     root.configure(bg="#050505")
     # Force position to (0,0) for mirrored mode - Wayland may ignore this
@@ -437,20 +454,24 @@ def get_primary_display() -> ScreenBounds:
     """Get the display to use for mirrored mode calibration.
     
     In mirrored mode, screeninfo reports incorrect (scaled) resolutions.
-    We query GNOME's DBus API for the actual current mode.
+    On Linux/GNOME, we query DBus for the actual current mode.
     """
-    # First, try to get the real resolution from GNOME
-    real_res = _get_gnome_display_resolution()
-    if real_res:
-        width, height = real_res
-        print(f"[Calibration] GNOME reports actual resolution: {width}x{height}")
-        return ScreenBounds(
-            width=width,
-            height=height,
-            origin=(0, 0),
-            monitor_name="primary",
-            monitor_index=0,
-        )
+    import platform
+    
+    # On Linux, try to get the real resolution from GNOME DBus
+    # (screeninfo reports scaled resolutions in mirrored mode)
+    if platform.system() == "Linux":
+        real_res = _get_gnome_display_resolution()
+        if real_res:
+            width, height = real_res
+            print(f"[Calibration] GNOME reports actual resolution: {width}x{height}")
+            return ScreenBounds(
+                width=width,
+                height=height,
+                origin=(0, 0),
+                monitor_name="primary",
+                monitor_index=0,
+            )
     
     # Fallback to screeninfo
     try:
