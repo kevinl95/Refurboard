@@ -30,6 +30,7 @@ _hidden = []
 if platform.system() == "Darwin":
     _hidden += collect_submodules("Quartz")
     _hidden += collect_submodules("AppKit")
+    _hidden += collect_submodules("objc")
     _hidden += collect_submodules("pyobjc")
 
 # Carry package metadata for license/readme propagation

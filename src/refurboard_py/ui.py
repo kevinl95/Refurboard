@@ -115,7 +115,7 @@ def launch(app: RefurboardApp) -> None:
         show=False,
         no_resize=True,
         width=420,
-        height=220,
+        height=280,
     ):
         dpg.add_text("No cameras detected!", color=(255, 100, 100))
         dpg.add_spacer(height=10)
@@ -125,7 +125,9 @@ def launch(app: RefurboardApp) -> None:
         dpg.add_text("  1. Open System Settings", wrap=400)
         dpg.add_text("  2. Go to Privacy & Security > Camera", wrap=400)
         dpg.add_text("  3. Enable Refurboard in the list", wrap=400)
-        dpg.add_text("  4. Restart Refurboard", wrap=400)
+        dpg.add_spacer(height=10)
+        dpg.add_text("After granting permission, click 'Refresh Cameras'", wrap=400)
+        dpg.add_text("to detect your camera.", wrap=400)
         dpg.add_spacer(height=10)
         dpg.add_button(
             label="OK",
@@ -328,8 +330,26 @@ def _refresh_cameras(app: RefurboardApp) -> None:
             app.camera_stream.stop()
             app.camera_stream = None
     
+    # Re-enumerate devices (this also updates app.devices)
+    devices = app.get_devices()
     dpg.configure_item(CAMERA_COMBO, items=_camera_labels(app))
-    dpg.set_value(CAMERA_COMBO, _camera_label_for(app, app.config.camera.device_id))
+    
+    # Check if we found real cameras
+    from .camera import no_real_cameras_found
+    if no_real_cameras_found(devices):
+        dpg.set_value(CAMERA_COMBO, _camera_label_for(app, 0))
+        return
+    
+    # Auto-select first camera if none was previously selected or current selection invalid
+    current_device_id = app.config.camera.device_id
+    valid_ids = [d.device_id for d in devices]
+    if current_device_id not in valid_ids:
+        current_device_id = devices[0].device_id
+    
+    dpg.set_value(CAMERA_COMBO, _camera_label_for(app, current_device_id))
+    
+    # Actually start the camera stream
+    app.select_camera(current_device_id)
 
 
 def _refresh_status(app: RefurboardApp) -> None:

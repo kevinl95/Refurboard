@@ -51,6 +51,12 @@ def enumerate_devices(max_devices: int = 8) -> List[CameraDescriptor]:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         devices.append(CameraDescriptor(device_id=device_id, label=f"Camera {device_id}", resolution=(width, height)))
         cap.release()
+    
+    # On macOS, add a small delay after releasing camera to let AVFoundation settle.
+    # Without this, immediately re-opening the camera can fail.
+    if _is_macos() and devices:
+        time.sleep(0.3)
+    
     if not devices:
         devices.append(CameraDescriptor(device_id=0, label="Camera 0"))
     return devices

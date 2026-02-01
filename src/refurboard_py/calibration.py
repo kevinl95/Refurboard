@@ -254,21 +254,28 @@ def close_all_overlays() -> None:
 
 
 def _overlay_process(bounds: ScreenBounds, conn: Connection) -> None:
-    # Import tkinter here (not at module level) to avoid macOS Cocoa/fork issues.
-    # On macOS, importing GUI toolkits before spawning subprocesses can cause crashes.
+    # CRITICAL: On macOS, hide from Dock IMMEDIATELY, before ANY other imports.
+    # This must happen before tkinter or any GUI toolkit touches Cocoa.
     import platform
+    import sys
     
-    # On macOS, hide this subprocess from the Dock before importing tkinter.
-    # This prevents the "phantom second app" in the Dock.
     if platform.system() == "Darwin":
         try:
+            # Import AppKit first, before anything else
+            import objc
             from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+            
+            # Get (or create) the shared application and set policy to hide from Dock
             app = NSApplication.sharedApplication()
             app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-        except ImportError:
-            # AppKit not available - Dock icon will appear but app still works
-            pass
+            
+            # Also prevent this process from appearing in app switcher
+            # by setting the activation policy before the run loop starts
+        except Exception as e:
+            # Log but continue - Dock icon is cosmetic issue
+            print(f"[Calibration] Could not hide subprocess from Dock: {e}", file=sys.stderr)
     
+    # NOW import tkinter (after Dock hiding is configured)
     import tkinter as tk
     
     root = tk.Tk()
