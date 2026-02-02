@@ -245,7 +245,7 @@
 
 </nav>
     <h1 id="refurboard">Refurboard</h1>
-<p><a href="./">Home</a> | <a href="technical/">Technical Guide</a></p>
+<p><a href="./">Home</a> | <a href="technical/">Technical Guide</a> | <a href="https://github.com/kevinl95/Refurboard/releases">Download</a></p>
 <h2 id="give-your-classroom-projector-superpowers">Give Your Classroom Projector Superpowers</h2>
 <p><strong>Refurboard transforms any projector or display into an interactive whiteboard</strong> - no expensive hardware required! Using just a webcam and an IR pen, teachers can write, draw, and interact directly on their projected lessons.</p>
 <p><img alt="Refurboard Logo" src="assets/logo.png" /></p>
@@ -323,6 +323,22 @@
 <li>Scroll down to find the message about Refurboard</li>
 <li>Click <strong>Open Anyway</strong></li>
 </ol>
+<p><strong>Grant Camera Permission:</strong></p>
+<p>When you first select a camera, macOS will ask for permission. Click <strong>OK</strong> to allow access. If no cameras appear in the dropdown:</p>
+<ol>
+<li>Open <strong>System Settings</strong> &gt; <strong>Privacy &amp; Security</strong> &gt; <strong>Camera</strong></li>
+<li>Find <strong>Refurboard</strong> in the list and enable it</li>
+<li>Restart Refurboard</li>
+</ol>
+<p><strong>Grant Accessibility Permission (required for cursor control):</strong></p>
+<p>Refurboard needs permission to move your cursor. macOS won't prompt for this automatically — you must grant it manually:</p>
+<ol>
+<li>Open <strong>System Settings</strong> &gt; <strong>Privacy &amp; Security</strong> &gt; <strong>Accessibility</strong></li>
+<li>Click the <strong>+</strong> button</li>
+<li>Navigate to and select <strong>Refurboard.app</strong></li>
+<li>Make sure the toggle is turned <strong>on</strong></li>
+</ol>
+<p><em>If cursor tracking shows in Refurboard but your cursor doesn't move, this permission is missing.</em></p>
 <h3 id="step-2-position-your-camera">Step 2: Position Your Camera</h3>
 <p>Set up your camera so it can see the <strong>entire projected area</strong>:</p>
 <ul>
@@ -374,6 +390,14 @@
 <tr>
 <td><strong>Mac: "unidentified developer"</strong></td>
 <td>Right-click the app, select Open, then click Open in the dialog</td>
+</tr>
+<tr>
+<td><strong>Mac: No cameras detected</strong></td>
+<td>Grant Camera permission in System Settings &gt; Privacy &amp; Security &gt; Camera</td>
+</tr>
+<tr>
+<td><strong>Mac: Cursor doesn't move</strong></td>
+<td>Grant Accessibility permission in System Settings &gt; Privacy &amp; Security &gt; Accessibility</td>
 </tr>
 </tbody>
 </table>

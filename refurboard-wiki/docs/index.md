@@ -1,6 +1,6 @@
 # Refurboard
 
-[Home](index.md) | [Technical Guide](technical.md)
+[Home](index.md) | [Technical Guide](technical.md) | [Download](https://github.com/kevinl95/Refurboard/releases)
 
 ## Give Your Classroom Projector Superpowers
 
