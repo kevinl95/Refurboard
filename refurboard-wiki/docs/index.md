@@ -142,6 +142,7 @@ Your IR pen now works like a mouse:
 
 ## Need More Help?
 
+- **Step-by-step tutorial** - Follow our [Instructables guide](https://www.instructables.com/Turn-Your-Old-Phone-Into-an-Interactive-Whiteboard/) with photos and detailed instructions
 - **Technical documentation** - See the [Technical Guide](technical.md) for advanced setup and IT administrators
 - **Report issues** - Visit our [GitHub page](https://github.com/kevinl95/Refurboard/issues)
 

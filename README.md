@@ -29,6 +29,8 @@ Refurboard is a classroom-ready IR whiteboard controller that turns any USB webc
 
 ## Quick Start
 
+📖 **New to Refurboard?** Check out our [step-by-step Instructables guide](https://www.instructables.com/Turn-Your-Old-Phone-Into-an-Interactive-Whiteboard/) for a complete walkthrough with photos!
+
 ```bash
 # 1. Install Poetry (https://python-poetry.org/docs/#installation)
 # 2. Clone and install dependencies
